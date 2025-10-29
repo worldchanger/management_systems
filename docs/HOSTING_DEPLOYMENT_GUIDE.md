@@ -106,9 +106,19 @@ python manager.py deploy-hosting-api --project-dir /opt/hosting-api
 # 3. Sync secrets securely
 python deploy-secure-sync.py
 
-# 4. Verify deployment
+# 4. Verify service status
 python manager.py hms-api-service status
+
+# 5. Run deployment verification (CRITICAL - DO NOT SKIP)
+# Verifies all endpoints, checks for 500/404/auth errors
+python scripts/verify_deployment.py --username admin --password <admin-password>
 ```
+
+**⚠️ IMPORTANT**: If step 5 verification fails, **DO NOT CONSIDER DEPLOYMENT COMPLETE**. 
+- Check logs for errors: `ssh root@asterra.remoteds.us "journalctl -u hms-api -n 100"`
+- Fix the root cause (code bug, missing dependency, config error)
+- Commit the fix and repeat steps 1-5
+- **Never** skip verification - it catches Internal Server Errors, 404s, auth issues
 
 ### **Method 2: Code-Only Updates**
 ```bash
