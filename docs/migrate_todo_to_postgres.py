@@ -11,14 +11,22 @@ This should be run once to migrate from file-based to database-backed system.
 import re
 import json
 import argparse
+import sys
 from datetime import datetime
 from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from typing import List, Dict, Optional
 
-# Database configuration (will be loaded from .secrets.json)
-DATABASE_URL = "postgresql://postgres:password@localhost/hosting_production"
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Import database configuration
+try:
+    from config.database import DATABASE_URL
+except ImportError:
+    # Fallback for running locally
+    DATABASE_URL = "postgresql://postgres:password@localhost/hosting_production"
 
 
 class TodoParser:
