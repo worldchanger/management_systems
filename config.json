@@ -1,0 +1,37 @@
+{
+  "remote_host": "root@asterra.remoteds.us",
+  "ssh_key_path": "/Users/bpauley/.ssh/id_ed25519",
+  "github_repos": {
+    "cigar": "git@github.com:worldchanger/cigar-management-system.git",
+    "tobacco": "git@github.com:worldchanger/tobacco-management-system.git",
+    "qa-test-repo": "git@github.com:worldchanger/qa-test-repo.git"
+  },
+  "code_dirs": {
+    "cigar": "/Users/bpauley/Projects/mangement-systems/cigar-management-system",
+    "tobacco": "/Users/bpauley/Projects/mangement-systems/tobacco-management-system",
+    "qa-test-repo": "/Users/bpauley/Projects/mangement-systems/qa-test-repo"
+  },
+  "domain": "remoteds.us",
+  "letsencrypt_email": "brian@thinkcreatebuildit.com",
+  "backup_dir_local": "/Users/bpauley/Projects/mangement-systems/backups/local",
+  "backup_dir_remote": "/Users/bpauley/Projects/mangement-systems/backups/remote",
+  "apps": {
+    "cigar": {
+      "subdomain": "cigars",
+      "remote_root": "/var/www/cigar",
+      "database": "cigar_mangement_sytem_production",
+      "json_api_url": "https://cigars.remoteds.us/api/inventory/default-inventory-token-12345"
+    },
+    "tobacco": {
+      "subdomain": "tobacco",
+      "remote_root": "/var/www/tobacco",
+      "database": "tobacco_mangement_sytem_production",
+      "json_api_url": "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjFoKu4gabh8EIGpLdssqxG4a9n_wvAOCtVpmVa0hH4W5GGq-st8HPAIFGPp31KkEaa7T7R8vUxjdP2Wnmbgx1XkEeXJN6Pq37pQiKAJDLXkD8w88Raacm57UYsfD0ZGj-rxwmWVF_KuvmLUAvwBXtKuOeKQ8WvTa76_1vFmtxOQIFvIGC4u42G7-zFjeu_VtEXGVeVqJp6sXZ4YEtMOjb3wOPf62Zf014u2FpfbeBUoqiCVPFRS7BGns1wZ7SaNRoUnGpAMGpXGQz4xzWrYbFtcoc65Q&lib=MRGRqkzMmnB5PhyvmX73Ok48u_O1Bspti"
+    },
+    "qa-test-repo": {
+      "subdomain": "qa-test",
+      "remote_root": "/var/www/qa-test-repo",
+      "database": "qa_test_repo_production"
+    }
+  }
+}
