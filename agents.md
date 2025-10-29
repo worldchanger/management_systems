@@ -196,6 +196,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 - General errors → Medium priority, ## Backlog section
 - Recurring completed issues → Treat as new issue
 - Track last seen timestamp in `tmp/` folder
+- **Deprecation Warnings**: When running commands and seeing deprecation warnings about deprecated code/methods, create a TODO/Kanban item to track it (Medium priority, Backlog section) with the warning message and file/line number
 
 **Completion Criteria:**
 - Only mark completed when 100% working and tested
@@ -874,20 +875,38 @@ This document is self-contained for AI implementation. Generate code per section
 - Follow automated SSL setup procedures
 - Verify certificate auto-renewal is configured
 
-### **🚀 For Deployment Work**
+### **For Deployment Work**
+- **ALWAYS read [HOSTING_DEPLOYMENT_GUIDE.md](docs/HOSTING_DEPLOYMENT_GUIDE.md) before deploying the hosting app** and anything related to the hosting app/API (kanban API, etc.)
 - Use the correct deployment method for each application:
-  - **Hosting System**: `python manager.py deploy-hosting-api` + `python deploy-secure-sync.py`
+  - **Hosting System**: Follow Method 1 in HOSTING_DEPLOYMENT_GUIDE.md
+    ```bash
+    cd hosting-management-system
+    git add -A && git commit -m "Description" && git push origin main
+    python manager.py deploy-hosting-api --project-dir /opt/hosting-api
+    python deploy-secure-sync.py
+    python manager.py hms-api-service status
+    ```
   - **Cigar App**: `python deploy-cigar.py` + `python deploy-cigar-secrets.py`  
   - **Tobacco App**: `python deploy-tobacco.py` + `python deploy-tobacco-secrets.py`
 - NEVER copy .secrets.json to remote servers
 - ALWAYS verify .env file permissions (600, correct ownership)
+
+### **Deployment Troubleshooting Rules**
+- **If deployment breaks**: Do NOT reinvent the wheel
+- **Diagnose first**: Figure out what broke (package version, missing dependency, config error, etc.)
+- **Fix the root cause**: Update/fix the code that broke
+- **If new code throws errors**: Debug why it's failing and fix it
+- **Push to repo**: Commit and push the fix
+- **Try deploy again**: Use the same deployment method from the guide
+- **If deployment method is fundamentally broken**: Update the method AND update the guide to match
+- **Document changes**: Update HOSTING_DEPLOYMENT_GUIDE.md if procedures change
 
 ### **🔒 Security Compliance Checklist**
 - [ ] Read SECURITY_GUIDE.md and understand all protocols
 - [ ] Never commit secrets to git repositories
 - [ ] Use environment variables for all sensitive data
 - [ ] Verify file permissions on .env files (600, www-data:www-data)
-- [ ] Use deployment-secure-sync scripts for secret management
+- [ ] Always read HOSTING_DEPLOYMENT_GUIDE.md before deploying the hosting app
 
 ---
 
