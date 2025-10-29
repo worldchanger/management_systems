@@ -181,7 +181,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 ```
 
 **Startup Workflow (Every Conversation):**
-1. Read agents.md file
+1. Read agents.md file IN FULL and read all linked documents it references under the root docs/ folder (deployment guides, security, architecture, etc.)
 2. Authenticate to kanban API (use stored credentials)
 3. Fetch current tasks via `GET /api/v1/kanban/tasks`
 4. Parse logs for errors/failures/404/500/auth errors

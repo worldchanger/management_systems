@@ -122,6 +122,29 @@ python manager.py deploy-hosting-api --project-dir /opt/hosting-api
 python deploy-secure-sync.py
 ```
 
+### **Method 4: Makefile Pipeline (Code + Service Deploy)**
+```bash
+# From repository root
+# 1) Run unit tests locally
+make test
+
+# 2) Commit and push
+make push m="Deploy: kanban DnD fix; apps start/stop/restart; docs"
+
+# 3) Deploy to remote (rsync code, ensure venv/deps, restart service, health checks)
+make deploy
+
+# 4) (If secrets changed) sync secrets and restart
+python hosting-management-system/deploy-secure-sync.py
+```
+Notes:
+- The Makefile calls hosting-management-system/scripts/deploy_hosting_api.sh which performs:
+  - rsync of the hosting-management-system to /opt/hosting-api (excludes .venv, .git, __pycache__)
+  - creates/uses venv at /opt/hosting-api/.venv and installs requirements.txt
+  - restarts uvicorn (or systemd if present)
+  - runs /health and /api/v1/kanban/health checks
+- Continue using deploy-secure-sync.py for secrets rotation; never copy .secrets.json to remote.
+
 ---
 
 ## 🔐 SSL Certificate Setup

@@ -1,11 +1,46 @@
 # Changelog
 
-## 2025-10-29 — Kanban System PostgreSQL Migration
+## 2025-10-29 — Kanban System PostgreSQL Migration + Tag Management
+
+### 🎯 **MAJOR UPDATES**: Database-Backed Kanban with Full Tag Management
+
+**Author**: AI Agent (Cascade)  
+**Status**: ✅ Complete and Tested  
+**Breaking Change**: Yes - Replaces TODO.md file-based system
+
+---
+
+### 🛠️ **FIXES & IMPROVEMENTS**
+
+#### API Fixes
+- **Fixed Delete Bug**: Template was using `task.line_number` instead of `task.id` for PostgreSQL
+- **Fixed Pydantic v2**: Changed `regex` to `pattern` in field validation
+- **Added Tags API**: `/api/v1/kanban/tags` endpoint for tag management
+
+#### UI Enhancements
+- **Added Tag Management**: Full CRUD interface at `/tags`
+- **Added Tag Filter**: Filter kanban tasks by assigned tags
+- **Added Completed Filter**: Default hide completed >7 days, with options:
+  - <7 Days, <=2 Weeks, <=1 Month, <=3 Months, <=1 Year, All Issues
+- **Updated Task Cards**: Display tags with custom colors
+- **Added Manage Tags Button**: Quick access from kanban board
+
+#### Testing & QA
+- **Added Unit Tests**: 20 comprehensive pytest tests for all CRUD operations
+- **All Tests Pass**: Verified locally before deployment
+- **Test Coverage**: API endpoints, database models, validation rules
+
+#### Operations
+- **PostgreSQL Remote Access**: Configured for user `bpauley`
+- **Firewall**: Opened port 5432 for remote connections
+- **Dependencies**: `sqlalchemy` and `psycopg2-binary` in requirements.txt
+
+---
 
 ### 🎯 **MAJOR UPDATE**: Migrated from File-Based to Database-Backed Kanban System
 
 **Author**: AI Agent (Cascade)  
-**Status**: ✅ Ready for Implementation  
+**Status**: ✅ Complete  
 **Breaking Change**: Yes - Replaces TODO.md file-based system
 
 ---

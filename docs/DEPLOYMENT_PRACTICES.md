@@ -42,6 +42,25 @@ python deploy-secure-sync.py
 # Use this when ONLY secrets/credentials need updating
 ```
 
+### **Method 4: Makefile Pipeline (Code + Service Deploy)**
+```bash
+# From repository root
+# 1) Run unit tests locally
+make test
+
+# 2) Commit and push
+make push m="Deploy hosting-api: kanban DnD fix; apps control; docs"
+
+# 3) Deploy to remote (rsync code, ensure venv/deps, restart service, health checks)
+make deploy
+
+# 4) (If secrets changed) sync secrets and restart
+python hosting-management-system/deploy-secure-sync.py
+```
+Notes:
+- This uses hosting-management-system/scripts/deploy_hosting_api.sh to rsync, ensure venv, restart uvicorn/systemd, and run health checks.
+- Continue to use deploy-secure-sync.py for secrets; never copy .secrets.json to remote.
+
 ---
 
 ## 🔒 **Secure Secrets Management Protocol**
