@@ -32,6 +32,12 @@
       "subdomain": "qa-test",
       "remote_root": "/var/www/qa-test-repo",
       "database": "qa_test_repo_production"
+    },
+    "hosting": {
+      "subdomain": "hosting",
+      "remote_root": "/opt/hosting-api",
+      "database": "hosting_production",
+      "description": "Hosting management FastAPI application with PostgreSQL-backed kanban system"
     }
   }
 }
