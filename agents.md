@@ -7,14 +7,56 @@
 ---
 
 ## 📋 Table of Contents
+- [System Overview](#system-overview)
 - [Core Development Rules](#core-development-rules)
-- [System Architecture Overview](#system-architecture-overview)
 - [Required Documentation Reading](#required-documentation-reading)
 - [Development Workflow](#development-workflow)
 - [Security Protocols](#security-protocols)
 - [Testing Requirements](#testing-requirements)
 - [Deployment Rules](#deployment-rules)
 - [Code Quality Standards](#code-quality-standards)
+- [Quick Reference Links](#quick-reference-links)
+
+---
+
+## 🏗️ System Overview
+
+This workspace contains **three interconnected management systems** designed for inventory tracking and infrastructure management:
+
+### **Core Applications**
+1. **Cigar Management System** - Track cigar inventory across humidors with OCR support
+2. **Tobacco Management System** - Track tobacco products and storage management  
+3. **Hosting Management System** - Deploy, monitor, and manage the Rails applications
+
+### **Technology Stack**
+- **Rails Applications**: Ruby 3.3+, Rails 7.2.2, PostgreSQL, Puma
+- **Hosting System**: Python FastAPI, SQLite, Nginx
+- **Infrastructure**: Ubuntu 25.04 LTS, systemd services, Let's Encrypt SSL
+
+### **Production Domains**
+- **Cigar App**: https://cigars.remoteds.us
+- **Tobacco App**: https://tobacco.remoteds.us
+- **Hosting Management**: https://hosting.remoteds.us
+
+### **Repository Structure**
+```
+management-systems/                    # Root workspace repository
+├── agents.md                         # Master development rules
+├── README.md                         # System overview
+├── config.json                       # Public configuration
+├── .secrets.json                     # Private credentials (gitignored)
+├── docs/                             # Consolidated documentation
+│   ├── CIGAR_DEPLOYMENT_GUIDE.md     # Cigar app procedures
+│   ├── TOBACCO_DEPLOYMENT_GUIDE.md   # Tobacco app procedures
+│   ├── HOSTING_DEPLOYMENT_GUIDE.md   # Hosting system procedures
+│   ├── CHANGELOG.md                  # Change tracking
+│   ├── TODO.md                       # Task tracking
+│   └── [Additional documentation]    # Reference materials
+├── cigar-management-system/          # Individual app repository
+├── tobacco-management-system/        # Individual app repository
+├── hosting-management-system/        # Individual app repository
+└── qa-test-repo/                     # Testing repository
+```
 
 ---
 
@@ -169,14 +211,80 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 ### Changelog Conventions
 
-- Keep the root `CHANGELOG.md` updated with every notable modification across subsystems.
+- Keep the root `docs/CHANGELOG.md` updated with every notable modification across subsystems.
 - Use dated releases with domain sections as applicable: UI, API, Storage, Images, Tasks, Admin, QA/Testing, Documentation, Operations, Schema, API Changes, Migration Notes, Testing Checklist, Known Limitations, Next Steps.
 - Use inline code for endpoints, fields, files, and paths; call out auth/roles and compatibility notes when relevant.
-- Cross-link related sections in `agents.md` and impacted subproject `README.md` files; log follow-ups in `TODO.md`.
+- Cross-link related sections in `agents.md` and impacted subproject `README.md` files; log follow-ups in `docs/TODO.md`.
+
+---
+
+## 📚 Required Documentation Reading
+
+### **Before Any Development Work**
+1. **[README.md](README.md)** - System overview and navigation
+2. **This agents.md** - Master development rules (you are here)
+3. **Application-specific deployment guide**:
+   - [CIGAR_DEPLOYMENT_GUIDE.md](docs/CIGAR_DEPLOYMENT_GUIDE.md) for cigar app work
+   - [TOBACCO_DEPLOYMENT_GUIDE.md](docs/TOBACCO_DEPLOYMENT_GUIDE.md) for tobacco app work
+   - [HOSTING_DEPLOYMENT_GUIDE.md](docs/HOSTING_DEPLOYMENT_GUIDE.md) for hosting system work
+
+### **Documentation Hierarchy**
+```
+agents.md (GOLDEN RULES)
+├── README.md (System Overview)
+├── docs/DEPLOYMENT_GUIDES.md (Application-specific)
+├── docs/CHANGELOG.md (Change tracking)
+└── Individual repository README.md files
+```
+
+### **For Security Procedures**
+- **[SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md)** - Complete security protocols
+- **[SSL_SETUP.md](docs/SSL_SETUP.md)** - SSL certificate management
+
+### **For Architecture Details**
+- **[ARCHITECTURE_PLAN.md](docs/ARCHITECTURE_PLAN.md)** - Detailed technical specifications
+- **[COMPLETE_DEPLOYMENT_GUIDE.md](docs/COMPLETE_DEPLOYMENT_GUIDE.md)** - Comprehensive deployment procedures
+
+---
+
+## 🔒 Security Protocols
+
+### **CRITICAL SECURITY RULES**
+1. **❌ NEVER copy .secrets.json to any remote server**
+2. **❌ NEVER commit secrets to version control**
+3. **❌ NEVER use hardcoded credentials in code**
+4. **✅ ALWAYS use environment variables for production**
+5. **✅ ALWAYS verify file permissions (600)**
+6. **✅ ALWAYS use www-data:www-data ownership**
+
+### **Secrets Management**
+- **Location**: `/Users/bpauley/Projects/mangement-systems/.secrets.json`
+- **Purpose**: Central credential storage (NEVER committed)
+- **Usage**: Reference for environment variable generation
+- **Security**: Global workspace root, not in any app repo
+
+### **Environment Variables**
+- Production uses `.env` files with 600 permissions
+- All sensitive data loaded from environment, not code
+- **Detailed procedures**: [SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md)
+
+### **SSL/HTTPS Management**
+- **Required**: Let's Encrypt certificates via certbot
+- **Automated**: Certificate issuance/renewal in deployment scripts
+- **No self-signed certs**: Use only trusted certificates
+- **Detailed setup**: [SSL_SETUP.md](docs/SSL_SETUP.md)
+
+### **SSH and Access Control**
+- SSH key authentication only (no passwords)
+- Keys stored in `.secrets.json` (gitignored)
+- **Deployment**: SSH keys deployed to remote servers during provisioning
+- **Ownership**: All web content runs as www-data:www-data
+
+---
 
 ### Key Principles for AI Implementation
 
-* **Modularity** : Each system is in its own private GitHub repository (e.g., cigar-management-system, tobacco-management-system, hosting-management-system). **CRITICAL**: There is NO git repository for the root workspace directory. Only individual application repositories exist.
+* **Modularity** : Each system is in its own private GitHub repository (e.g., cigar-management-system, tobacco-management-system, hosting-management-system). **WORKSPACE STRUCTURE**: The root workspace directory is a consolidated git repository (management-systems) that contains documentation, configuration, and references to individual application repositories.
 * **Tech Stack** :
   * Rails Apps: Ruby 3.3+, Rails 7.2.2, Postgres DB, Puma (app server), Nginx (reverse proxy).
   * Local Management Tool: Python 3.12+, CLI-based (manager.py), Fabric/Paramiko for SSH automation, JSON for config/datastore.
@@ -190,7 +298,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
   * Git push to repository, THEN deploy to production via management tool.
 * **Security** : Use SSH keys for remote access (no passwords). Store secrets in .secrets.json (not committed to Git). Use HTTPS via Let's Encrypt or approved self-signed certificates (free options only), and ensure provisioning automates certificate issuance/renewal as part of deployments.
 * **Testing** : Include RSpec (for Rails) and Pytest (for Python) specs for all CRUD operations, API endpoints, and automation tasks.
-* **Version Control** : Main branch for production-ready code. Use semantic versioning (e.g., v1.0.0 tags). **Remember: NO root-level git repository.**
+* **Version Control** : Main branch for production-ready code. Use semantic versioning (e.g., v1.0.0 tags). **Workspace Repository**: The root management-systems repository tracks consolidated documentation and configuration, while individual application repositories track their respective codebases.
 * **Documentation in Code** : Use inline comments, README.md per repo, and YARD/RDoc for Ruby, Sphinx/Pydoc for Python.
 * **AI Workflow** : Agents should generate code iteratively: Start with scaffolds, add features, test, refine. Use tools like code_execution for validation.
 * **Dependencies** : Minimize external gems/packages. For Rails: Add tesseract-ffi, rmagick, fuzzy-string-match for OCR. For Python: fabric, paramiko, click, python-dotenv, keyring, rsync (via subprocess).
@@ -793,3 +901,32 @@ This document is self-contained for AI implementation. Generate code per section
 - **SSL_SETUP.md** = Authoritative SSL certificate management
 
 **IF THERE ARE CONFLICTS between documents, the ARCHITECTURE_PLAN.md and SECURITY_GUIDE.md take precedence.**
+
+---
+
+## 🔗 Quick Reference Links
+
+### **📋 Essential Documents**
+- **[System Overview](README.md)** - High-level system introduction
+- **[Cigar App Deployment](docs/CIGAR_DEPLOYMENT_GUIDE.md)** - Cigar application procedures
+- **[Tobacco App Deployment](docs/TOBACCO_DEPLOYMENT_GUIDE.md)** - Tobacco application procedures  
+- **[Hosting System Deployment](docs/HOSTING_DEPLOYMENT_GUIDE.md)** - Hosting management procedures
+- **[Change Log](docs/CHANGELOG.md)** - System change tracking
+- **[TODO System](docs/TODO.md)** - Task tracking interface
+
+### **🔧 Development Resources**
+- **[Security Guide](docs/SECURITY_GUIDE.md)** - Complete security protocols
+- **[SSL Setup](docs/SSL_SETUP.md)** - Certificate management
+- **[Architecture Plan](docs/ARCHITECTURE_PLAN.md)** - Technical specifications
+- **[Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md)** - Pre-deployment verification
+
+### **🚀 Quick Start**
+1. **Read this agents.md** - Master rules and protocols
+2. **Choose your application** - Follow deployment guide
+3. **Set up local environment** - Match production requirements
+4. **Run tests** - Ensure all tests pass
+5. **Deploy via hosting system** - Use management tools
+
+---
+
+**This workspace follows the development rules outlined in this agents.md document. All team members must read and understand these protocols before making any changes.**
