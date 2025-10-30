@@ -69,7 +69,7 @@
   - [x] API returning valid JSON data
 
 ### 6. Production Deployment - Tobacco App ✅
-- **Status**: COMPLETED (API has minor issue - investigating)
+- **Status**: COMPLETED
 - **Priority**: HIGH
 - **Description**: Deploy tobacco app with API token support
 - **Completed**: Oct 30, 2025
@@ -77,8 +77,12 @@
   - [x] Run deploy-secure-sync.py to set API token
   - [x] Deploy tobacco app code  
   - [x] All secrets deployed via deploy-secure-sync.py
+  - [x] Fixed database.yml (added host: 127.0.0.1)
+  - [x] Database migrations run successfully (8 tables created)
+  - [x] Admin user created successfully
   - [x] Service restarted successfully
-  - [ ] Verify API endpoint (returns 500 - needs investigation)
+  - [x] API endpoint verified - returns JSON data ✅
+  - [x] Web app login working
 
 ---
 
