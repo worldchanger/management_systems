@@ -50,7 +50,7 @@ management-systems/                    # Root workspace repository
 │   ├── TOBACCO_DEPLOYMENT_GUIDE.md   # Tobacco app procedures
 │   ├── HOSTING_DEPLOYMENT_GUIDE.md   # Hosting system procedures
 │   ├── CHANGELOG.md                  # Change tracking
-│   ├── TODO.md                       # Task tracking
+│   ├── TODO.md                       # ⚠️ DEPRECATED - Use Kanban API
 │   └── [Additional documentation]    # Reference materials
 ├── cigar-management-system/          # Individual app repository
 ├── tobacco-management-system/        # Individual app repository
@@ -62,13 +62,61 @@ management-systems/                    # Root workspace repository
 
 ## 🎯 Core Development Rules
 
-### **1. Task Tracking (MANDATORY)**
-- **BEFORE starting ANY work**: Check if a task exists in the TODO/Kanban system
-- **If task exists**: Update it with current status and move to "In Progress"
-- **If task doesn't exist**: Create it in the appropriate section with proper priority
-- **When completed**: Mark the task as completed via API
-- **NO EXCEPTIONS**: All work must be tracked in the Kanban system
-- This ensures complete visibility and accountability for all work
+### **1. Task Tracking via Kanban API (MANDATORY)**
+
+**ALL task management is done via the PostgreSQL-backed Kanban API**
+
+#### Start of Work Session
+```bash
+# Fetch all current tasks from server
+cd hosting-management-system
+python scripts/kanban/fetch_tasks.py
+
+# Review your tasks (saved to scripts/kanban/my_tasks.json)
+cat scripts/kanban/my_tasks.json | jq '.tasks[] | select(.section == "In Progress")'
+```
+
+#### When User Assigns New Tasks
+```bash
+# Check if task exists in your fetched tasks
+# If NOT found, create it:
+python scripts/kanban/add_task.py \
+  --content "Task description" \
+  --priority high \
+  --section "In Progress" \
+  --epic "category" \
+  --owner "agent"
+
+# Then refresh your task list
+python scripts/kanban/fetch_tasks.py
+```
+
+#### When You Complete Tasks
+```bash
+# Edit scripts/kanban/my_tasks.json
+# Change task status from "pending" to "completed"
+# Change section to "Completed" if needed
+
+# Then sync changes back to server
+python scripts/kanban/sync_tasks.py
+```
+
+#### End of Work Session
+```bash
+# Final sync of all changes
+python scripts/kanban/sync_tasks.py
+
+# Verify sync succeeded
+python scripts/kanban/fetch_tasks.py
+```
+
+**Rules**:
+- **NEVER use docs/TODO.md** - it's deprecated
+- **ALWAYS** fetch tasks at session start
+- **ALWAYS** sync tasks at session end
+- Server is the source of truth
+- All changes go through the API
+- See: `hosting-management-system/scripts/kanban/README.md`
 
 ### **2. Question Ambiguity**
 - Treat every unclear requirement as a topic for clarification
@@ -91,10 +139,12 @@ management-systems/                    # Root workspace repository
 - Use domain-based sections (UI, API, storage, images, tasks, QA, docs, ops)
 
 ### **6. Task Hygiene**
-- Use the TODO system in the hosting management interface
-- Move cards between states: Backlog → To Do → In Progress → Completed
-- Capture priorities (High/Med/Low) per card
+- Use the Kanban API system via scripts (see Rule #1)
+- Move tasks between sections: Backlog → In Progress → Completed
+- Capture priorities (low/medium/high) per task
 - Split broad items into smaller subtasks immediately
+- Assign epics/categories for organization
+- Always assign owner="agent" for your tasks
 
 ### **7. Testing Before Completion**
 - ALL code must have comprehensive unit tests written and passing locally
@@ -288,10 +338,17 @@ python deploy-secure-sync.py --app cigar --no-restart
 7. Verifies services are active
 
 **Integration with manager.py**:
-- `manager.py` MUST call `deploy-secure-sync.py` for all secret deployment
-- `manager.py` should NOT deploy secrets directly
-- Use `--no-restart` when deploying secrets before code deployment
-- Let `manager.py` handle service restarts after code deployment
+- ✅ `manager.py` automatically calls `deploy-secure-sync.py` during deployment
+- ✅ `manager.py` creates skeleton systemd service files WITHOUT secrets
+- ✅ `deploy-secure-sync.py` then injects secrets into service files
+- ✅ `manager.py` never touches secrets directly
+- ✅ This ensures secrets are never overwritten during code deployments
+
+**Critical Fix (Oct 30, 2025)**:
+- Created `puma.service.skeleton.tpl` template WITHOUT secrets
+- Modified `_write_systemd_service()` to use skeleton template
+- Added automatic `deploy-secure-sync.py` call after service file creation
+- This prevents manager.py from overwriting secrets deployed by deploy-secure-sync.py
 
 **Security Features**:
 - ✅ No secrets passed on command line
