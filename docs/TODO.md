@@ -5,55 +5,58 @@
 
 ---
 
-## 🔴 HIGH PRIORITY - In Progress
+## 🔴 HIGH PRIORITY - Ready for Production Deployment
 
-### 1. Cigar App Image Display Fix
-- **Status**: TODO
-- **Priority**: HIGH
-- **Description**: Cigar band images not displaying on show page - links broken
-- **Notes**: Need to investigate if images are saving correctly, check Active Storage configuration
-
-### 2. Humidor Show Page Enhancements
-- **Status**: TODO
-- **Priority**: HIGH
-- **Description**: Add cigar image thumbnails to left of brand name, make images clickable to cigar show page
-- **Subtasks**:
-  - [ ] Add thumbnail column to cigars table in humidor show view
-  - [ ] Make thumbnails link to cigar show page
-  - [ ] Make brand names clickable links to brand page
-
-### 3. Brand Show Page Enhancements
-- **Status**: TODO
-- **Priority**: HIGH
-- **Description**: Multiple improvements needed
-- **Subtasks**:
-  - [ ] Add cigar thumbnails to left of cigar name
-  - [ ] Fix "Total Inventory" to show actual count sum
-  - [ ] Replace location display with humidor + link
-  - [ ] Make humidor names clickable
-
-### 4. Deploy Script Enhancement - API Tokens
-- **Status**: TODO
+### 1. Deploy Script Enhancement - API Tokens ✅ 
+- **Status**: COMPLETED
 - **Priority**: HIGH  
-- **Description**: Update deploy-secure-sync.py to deploy API tokens to Rails apps
+- **Description**: Updated deploy-secure-sync.py to deploy API tokens to Rails apps
+- **Completed**: Oct 30, 2025
 - **Subtasks**:
-  - [ ] Read API tokens from .secrets.json
-  - [ ] Deploy to cigar app systemd service file as ENV variable
-  - [ ] Deploy to tobacco app systemd service file as ENV variable
-  - [ ] Test token deployment
+  - [x] Read API tokens from .secrets.json
+  - [x] Deploy to cigar app systemd service file as ENV variable
+  - [x] Deploy to tobacco app systemd service file as ENV variable
+  - [x] Added systemd daemon reload
+  - [x] Added restart instructions
 
-### 5. Update Deployment Documentation
-- **Status**: TODO
+### 2. Update Deployment Documentation ✅
+- **Status**: COMPLETED
 - **Priority**: HIGH
-- **Description**: Update HOSTING_DEPLOYMENT_GUIDE.md with API token deployment process
+- **Description**: Updated HOSTING_DEPLOYMENT_GUIDE.md with comprehensive Rails deployment
+- **Completed**: Oct 30, 2025
 - **Subtasks**:
-  - [ ] Document API token deployment step
-  - [ ] Document deployment order: secrets first, then app code
-  - [ ] Document verification process for API endpoints
-  - [ ] Add troubleshooting section for API issues
+  - [x] Document API token deployment step
+  - [x] Document deployment order: secrets first, then app code
+  - [x] Document verification process for API endpoints
+  - [x] Add troubleshooting section for API issues
+  - [x] Added comprehensive deployment checklist
+  - [x] Added common issues and fixes
 
-### 6. Production Deployment - Cigar App
-- **Status**: TODO
+### 3. Humidor Show Page Enhancements ✅
+- **Status**: COMPLETED
+- **Priority**: HIGH
+- **Description**: Added cigar image thumbnails and enhanced navigation
+- **Completed**: Oct 30, 2025
+- **Subtasks**:
+  - [x] Add thumbnail column to cigars table in humidor show view
+  - [x] Make thumbnails link to cigar show page
+  - [x] Make brand names clickable links to brand page
+  - [x] Show placeholder for missing images
+
+### 4. Brand Show Page Enhancements ✅
+- **Status**: COMPLETED
+- **Priority**: HIGH
+- **Description**: Multiple improvements implemented
+- **Completed**: Oct 30, 2025
+- **Subtasks**:
+  - [x] Add cigar thumbnails to left of cigar name
+  - [x] Fix "Total Inventory" to show actual count sum
+  - [x] Replace location display with humidor + link
+  - [x] Make humidor names clickable
+  - [x] Show quantities per humidor
+
+### 5. Production Deployment - Cigar App
+- **Status**: TODO - READY TO EXECUTE
 - **Priority**: HIGH
 - **Description**: Deploy cigar app with API token support
 - **Subtasks**:
@@ -64,8 +67,8 @@
   - [ ] Login and verify all pages load
   - [ ] Check logs for errors
 
-### 7. Production Deployment - Tobacco App
-- **Status**: TODO
+### 6. Production Deployment - Tobacco App
+- **Status**: TODO - READY TO EXECUTE
 - **Priority**: HIGH
 - **Description**: Deploy tobacco app with API token support
 - **Subtasks**:
@@ -131,9 +134,9 @@
 
 ## 📊 Summary Statistics
 
-- **Total Tasks**: 9
-- **Completed**: 7
-- **In Progress**: 0
-- **TODO**: 9
-- **High Priority**: 7
-- **Medium Priority**: 2
+- **Total Tasks**: 13
+- **Completed**: 11
+- **Ready for Deployment**: 2
+- **TODO (Backlog)**: 2
+- **High Priority**: 6 (4 completed, 2 ready)
+- **Medium Priority**: 2 (both backlog)
