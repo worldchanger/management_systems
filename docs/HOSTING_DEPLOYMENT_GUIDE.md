@@ -103,8 +103,13 @@ git push origin main
 # 2. Deploy application code
 python manager.py deploy-hosting-api --project-dir /opt/hosting-api
 
-# 3. Sync secrets securely
+# 3. Sync secrets securely (INCLUDES API TOKENS)
 python deploy-secure-sync.py
+# This deploys:
+# - HMS admin credentials
+# - JWT secrets
+# - Database credentials
+# - Rails app API tokens (CIGAR_API_TOKEN, TOBACCO_API_TOKEN)
 
 # 4. Verify service status
 python manager.py hms-api-service status
@@ -119,6 +124,12 @@ python scripts/verify_deployment.py --username admin --password <admin-password>
 - Fix the root cause (code bug, missing dependency, config error)
 - Commit the fix and repeat steps 1-5
 - **Never** skip verification - it catches Internal Server Errors, 404s, auth issues
+
+**🔑 API Token Deployment Note**:
+- The `deploy-secure-sync.py` script now automatically deploys Rails API tokens
+- Tokens are written to systemd service files as Environment variables
+- This ensures secure, non-plain-text storage of API credentials
+- After running deploy-secure-sync.py, Rails apps MUST be restarted to pick up new tokens
 
 ### **Method 2: Code-Only Updates**
 ```bash
@@ -154,6 +165,175 @@ Notes:
   - restarts uvicorn (or systemd if present)
   - runs /health and /api/v1/kanban/health checks
 - Continue using deploy-secure-sync.py for secrets rotation; never copy .secrets.json to remote.
+
+---
+
+## 🚂 Rails Application Deployment
+
+### **Critical Deployment Order**
+For Cigar and Tobacco Rails applications, always follow this order:
+1. **Deploy Secrets FIRST** (API tokens via systemd)
+2. **Deploy Application Code**
+3. **Restart Services**
+4. **Verify Deployment**
+
+### **Full Rails App Deployment Process**
+
+#### **Step 1: Deploy Secrets (API Tokens)**
+```bash
+cd /Users/bpauley/Projects/mangement-systems/hosting-management-system
+
+# Deploy API tokens to systemd service files
+python deploy-secure-sync.py
+
+# This automatically:
+# - Adds/updates CIGAR_API_TOKEN in cigar-management-system.service
+# - Adds/updates TOBACCO_API_TOKEN in tobacco-management-system.service
+# - Reloads systemd daemon
+# - Does NOT restart apps yet (do that after code deploy)
+```
+
+#### **Step 2: Deploy Application Code**
+```bash
+# For Cigar App
+cd /Users/bpauley/Projects/mangement-systems/cigar-management-system
+git add -A
+git commit -m "Deploy: description"
+git push origin main
+
+# Deploy to production
+# (Use your deployment method - rsync, Capistrano, etc.)
+
+# For Tobacco App
+cd /Users/bpauley/Projects/mangement-systems/tobacco-management-system
+git add -A
+git commit -m "Deploy: description"
+git push origin main
+
+# Deploy to production
+```
+
+#### **Step 3: Restart Rails Services**
+```bash
+# SSH to server
+ssh root@asterra.remoteds.us
+
+# Restart both apps to pick up new code and API tokens
+sudo systemctl restart cigar-management-system
+sudo systemctl restart tobacco-management-system
+
+# Verify services are running
+sudo systemctl status cigar-management-system
+sudo systemctl status tobacco-management-system
+```
+
+#### **Step 4: Comprehensive Verification**
+
+**A. Check API Endpoints with Tokens**
+```bash
+# Test Cigar API
+curl -s "https://cigars.remoteds.us/api/inventory/cigar_9ZRTs_jAOtP-y_F3a1sozNrGJQpB28DvZemv-_sD_2E" | python3 -m json.tool | head -20
+
+# Test Tobacco API
+curl -s "https://tobacco.remoteds.us/api/inventory/tobacco_Ng0UtgzQDSfqMjGgiCOjcmxj2A34q-anqQ1ebh6iTmA" | python3 -m json.tool | head -20
+
+# Both should return JSON inventory data
+# If you get 401/403, tokens are not set correctly
+# If you get 500, check application logs
+```
+
+**B. Check Routes Without Authentication**
+```bash
+# Should redirect to login (302)
+curl -I https://cigars.remoteds.us/cigars
+curl -I https://tobacco.remoteds.us/locations
+
+# Should NOT return 404 or 500
+```
+
+**C. Test Authenticated Routes**
+```bash
+# Login and test pages manually:
+# 1. Visit https://cigars.remoteds.us
+# 2. Login with credentials
+# 3. Navigate to all major pages:
+#    - Dashboard
+#    - Cigars index
+#    - Humidors index
+#    - Brands index
+#    - Locations index
+#    - Click "View" on individual items
+# 4. Check browser console for JS errors
+# 5. Check for layout/styling issues
+```
+
+**D. Check Application Logs**
+```bash
+# Cigar app logs
+sudo journalctl -u cigar-management-system -n 100 --no-pager
+
+# Tobacco app logs
+sudo journalctl -u tobacco-management-system -n 100 --no-pager
+
+# Look for:
+# - 500 errors
+# - Missing method errors
+# - Template errors
+# - Database connection errors
+# - Asset loading errors
+```
+
+**E. Check Nginx Logs**
+```bash
+# Access logs
+sudo tail -50 /var/log/nginx/cigars.remoteds.us.access.log
+sudo tail -50 /var/log/nginx/tobacco.remoteds.us.access.log
+
+# Error logs
+sudo tail -50 /var/log/nginx/cigars.remoteds.us.error.log
+sudo tail -50 /var/log/nginx/tobacco.remoteds.us.error.log
+```
+
+### **Deployment Verification Checklist**
+
+Use this checklist after EVERY deployment:
+
+- [ ] API endpoints return valid JSON (not 401/500)
+- [ ] Unauthenticated routes redirect to login (302, not 404/500)
+- [ ] Login page loads without errors
+- [ ] Can successfully login with credentials
+- [ ] Dashboard loads with real data
+- [ ] All index pages load (cigars, humidors, brands, locations, etc.)
+- [ ] Can view individual item show pages
+- [ ] Can create new items (if applicable)
+- [ ] Can edit existing items
+- [ ] Application logs show no errors after page loads
+- [ ] Nginx logs show 200/302 responses (no 500s)
+- [ ] Browser console shows no JavaScript errors
+- [ ] Images load correctly (if applicable)
+- [ ] API URLs in config.json match production endpoints
+
+### **Common Deployment Issues**
+
+**Issue**: API returns `{"error": "Invalid API token"}`
+- **Cause**: Token not set in systemd service file
+- **Fix**: Run `deploy-secure-sync.py` and restart service
+
+**Issue**: API returns `{"error": "API not configured"}`
+- **Cause**: ENV variable not loading
+- **Fix**: Check service file has `Environment="CIGAR_API_TOKEN=..."` and restart
+
+**Issue**: Routes return 500 Internal Server Error
+- **Cause**: Application code error
+- **Fix**: Check logs with `journalctl -u <service> -n 100`
+
+**Issue**: Routes return 404 Not Found
+- **Cause**: Routing or nginx configuration issue
+- **Fix**: Verify routes.rb and nginx config
+
+**Issue**: Cannot login / Devise errors
+- **Cause**: Database migration not run, secret_key_base issue
+- **Fix**: Run migrations, check .env file on server
 
 ---
 
