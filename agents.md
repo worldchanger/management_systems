@@ -238,6 +238,88 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 ---
 
+## 🚀 Deployment & Secrets Management
+
+### **CRITICAL: deploy-secure-sync.py is the SOLE Secrets Deployment Method**
+
+**Location**: `hosting-management-system/deploy-secure-sync.py`
+
+**Purpose**: This script is the PRIMARY and ONLY method for deploying secrets to production. NO other script should deploy secrets.
+
+**What It Deploys**:
+1. **HMS Secrets** → `/opt/hosting-api/.env`
+   - Admin credentials
+   - JWT secrets
+   - Database credentials
+   
+2. **Rails App Secrets** → systemd service files (`/etc/systemd/system/puma-{app}.service`)
+   - `SECRET_KEY_BASE`
+   - `{APP}_DATABASE_PASSWORD`
+   - `{APP}_API_TOKEN`
+
+**Command-Line Options**:
+```bash
+# Deploy all secrets (HMS + both Rails apps) - DEFAULT
+python deploy-secure-sync.py
+python deploy-secure-sync.py --all
+
+# Deploy specific Rails app only
+python deploy-secure-sync.py --app cigar
+python deploy-secure-sync.py --app tobacco
+
+# Deploy HMS secrets only
+python deploy-secure-sync.py --hms
+
+# Deploy both Rails apps (skip HMS)
+python deploy-secure-sync.py --rails-only
+
+# Deploy without restarting services
+python deploy-secure-sync.py --no-restart
+python deploy-secure-sync.py --app cigar --no-restart
+```
+
+**Deployment Workflow**:
+1. Script reads secrets from `/.secrets.json` (root of workspace)
+2. Connects to remote server via Fabric/SSH
+3. For HMS: Creates/updates `/opt/hosting-api/.env` with secure permissions
+4. For Rails: Updates systemd service files with Environment variables
+5. Reloads systemd daemon
+6. Restarts affected services (unless `--no-restart`)
+7. Verifies services are active
+
+**Integration with manager.py**:
+- `manager.py` MUST call `deploy-secure-sync.py` for all secret deployment
+- `manager.py` should NOT deploy secrets directly
+- Use `--no-restart` when deploying secrets before code deployment
+- Let `manager.py` handle service restarts after code deployment
+
+**Security Features**:
+- ✅ No secrets passed on command line
+- ✅ No plain-text files in Rails app directories  
+- ✅ Secrets stored in systemd Environment variables only
+- ✅ Secure file permissions (600 for .env, root-owned service files)
+- ✅ All secrets read from gitignored `.secrets.json`
+
+**Verification Commands**:
+```bash
+# Check systemd service file has secrets
+ssh root@server "grep Environment /etc/systemd/system/puma-cigar.service"
+
+# Verify service is running
+ssh root@server "systemctl status puma-cigar"
+
+# Test API with token
+curl "https://cigars.remoteds.us/api/inventory/{TOKEN}"
+```
+
+**NEVER**:
+- ❌ Deploy secrets via environment variables on command line
+- ❌ Create `.env` files in Rails app directories
+- ❌ Pass secrets as CLI arguments to Rails commands
+- ❌ Use any deployment method other than `deploy-secure-sync.py`
+
+---
+
 ## 📚 Required Documentation Reading
 
 ### **Before Any Development Work**
