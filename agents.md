@@ -62,49 +62,57 @@ management-systems/                    # Root workspace repository
 
 ## 🎯 Core Development Rules
 
-### **1. Question Ambiguity**
+### **1. Task Tracking (MANDATORY)**
+- **BEFORE starting ANY work**: Check if a task exists in the TODO/Kanban system
+- **If task exists**: Update it with current status and move to "In Progress"
+- **If task doesn't exist**: Create it in the appropriate section with proper priority
+- **When completed**: Mark the task as completed via API
+- **NO EXCEPTIONS**: All work must be tracked in the Kanban system
+- This ensures complete visibility and accountability for all work
+
+### **2. Question Ambiguity**
 - Treat every unclear requirement as a topic for clarification
 - Surface questions early to confirm assumptions before coding
 - Never make assumptions about user requirements
 
-### **2. Documentation First**
+### **3. Documentation First**
 - Every folder across all repositories must contain a README.md
 - Include purpose, architecture relationships, entry points, and usage patterns
 - Include at least one relevant Mermaid diagram (flowchart, sequence, or class)
 
-### **3. Code Commentary Discipline**
+### **4. Code Commentary Discipline**
 - Provide concise, high-value inline comments for complex logic only
 - Default to self-documenting code
 - Ensure docstrings/YARD/Sphinx annotations stay current
 
-### **4. Change Tracking**
+### **5. Change Tracking**
 - Update `docs/CHANGELOG.md` alongside any notable modification
 - Log date, author (AI agent), and summary
 - Use domain-based sections (UI, API, storage, images, tasks, QA, docs, ops)
 
-### **5. Task Hygiene**
+### **6. Task Hygiene**
 - Use the TODO system in the hosting management interface
 - Move cards between states: Backlog → To Do → In Progress → Completed
 - Capture priorities (High/Med/Low) per card
 - Split broad items into smaller subtasks immediately
 
-### **6. Testing Before Completion**
+### **7. Testing Before Completion**
 - ALL code must have comprehensive unit tests written and passing locally
 - Rails apps: RSpec tests for models, controllers, and views
 - Python: pytest tests
 - No task is "complete" until tests are written, passing, and verified locally
 
-### **7. Code Review**
+### **8. Code Review**
 - Run `rubocop` for Rails apps or `pylint` for Python apps
 - Run all tests again after review
 - Ensure code meets quality standards before marking complete
 
-### **8. Code Push**
+### **9. Code Push**
 - Ensure code has been pushed to the remote repository
 - Use proper commit messages
 - Keep repository up to date with remote
 
-### **9. Command Cancellation Handling**
+### **10. Command Cancellation Handling**
 - **First Cancellation**: Immediately retry the same command once
 - **Second Cancellation**: Retry again - may be in a hung state
 - **Third Cancellation**: Check if user manually executed successfully
