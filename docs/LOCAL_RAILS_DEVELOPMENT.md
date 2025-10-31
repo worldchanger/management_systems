@@ -4,10 +4,11 @@ This guide explains how to run all three Rails applications concurrently on your
 
 ## Overview
 
-The management system consists of three Rails applications:
+The management system consists of four Rails applications:
 - **Cigar Management System** - Runs on port 3001
 - **Tobacco Management System** - Runs on port 3002
-- **QA Test Repo** - Runs on port 3003
+- **Whiskey Management System** - Runs on port 3003
+- **QA Test Repo** - Runs on port 3004
 
 All three applications can run simultaneously on different ports for integrated development and testing.
 

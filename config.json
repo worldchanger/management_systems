@@ -4,11 +4,13 @@
   "github_repos": {
     "cigar": "git@github.com:worldchanger/cigar-management-system.git",
     "tobacco": "git@github.com:worldchanger/tobacco-management-system.git",
+    "whiskey": "git@github.com:worldchanger/whiskey-management-system.git",
     "qa-test-repo": "git@github.com:worldchanger/qa-test-repo.git"
   },
   "code_dirs": {
     "cigar": "/Users/bpauley/Projects/mangement-systems/cigar-management-system",
     "tobacco": "/Users/bpauley/Projects/mangement-systems/tobacco-management-system",
+    "whiskey": "/Users/bpauley/Projects/mangement-systems/whiskey-management-system",
     "qa-test-repo": "/Users/bpauley/Projects/mangement-systems/qa-test-repo"
   },
   "domain": "remoteds.us",
@@ -19,14 +21,20 @@
     "cigar": {
       "subdomain": "cigars",
       "remote_root": "/var/www/cigar",
-      "database": "cigar_mangement_sytem_production",
+      "database": "cigar_mangement_system_production",
       "json_api_url": "https://cigars.remoteds.us/api/inventory/cigar_9ZRTs_jAOtP-y_F3a1sozNrGJQpB28DvZemv-_sD_2E"
     },
     "tobacco": {
       "subdomain": "tobacco",
       "remote_root": "/var/www/tobacco",
-      "database": "tobacco_mangement_sytem_production",
+      "database": "tobacco_mangement_system_production",
       "json_api_url": "https://tobacco.remoteds.us/api/inventory/tobacco_Ng0UtgzQDSfqMjGgiCOjcmxj2A34q-anqQ1ebh6iTmA"
+    },
+    "whiskey": {
+      "subdomain": "whiskey",
+      "remote_root": "/var/www/whiskey",
+      "database": "whiskey_management_system_production",
+      "json_api_url": "https://whiskey.remoteds.us/api/inventory/whiskey_aBPPVx76QSdhEZXAReExkgNhx5ROa5KIY5S87SwTVOE"
     },
     "qa-test-repo": {
       "subdomain": "qa-test",

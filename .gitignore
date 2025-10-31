@@ -13,6 +13,7 @@
 # Sub-repositories (these have their own git history)
 cigar-management-system/
 tobacco-management-system/
+whiskey-management-system/
 hosting-management-system/
 qa-test-repo/
 
