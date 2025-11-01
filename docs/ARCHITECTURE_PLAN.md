@@ -1,7 +1,18 @@
 # Hosting Management System - Complete Architecture Plan
 
-**Date**: October 27, 2025  
-**Status**: Phase 3 Complete - Log Viewing Implemented
+**Date**: October 31, 2025  
+**Status**: Phase 4 Complete - Database-First Architecture Implemented
+
+## 🚨 CRITICAL: DATABASE-FIRST ARCHITECTURE
+
+**ALL configuration and secrets are stored in and loaded from the `hosting_production` PostgreSQL database.**
+
+- ❌ NO .env files on server
+- ❌ NO .secrets.json files on server  
+- ❌ NO config.json files on server
+- ✅ ALL secrets in database tables
+- ✅ Secrets injected as Environment= variables in systemd service files
+- ✅ Infrastructure as code
 
 ## 🎯 **System Overview**
 
@@ -63,55 +74,80 @@ hosting-management-system/
 │   ├── test_web_api.py    # Test remote API
 │   ├── test_auth.py       # Test authentication
 │   └── test_services.py   # Test service modules
-├── .secrets.json          # Credentials (gitignored)
-├── config.json            # Public configuration (includes `letsencrypt_email` for ACME contact)
+├── db_config.py           # Database configuration loader
+├── deploy-secure-sync.py  # Deploys secrets from database to systemd
 ├── requirements.txt
 └── DEPLOYMENT_LOG.md
 ```
 
-## 🔐 **Updated .secrets.json Format & SSL Paths**
+## 🔐 **Database-First Secret Management**
 
-Add hosting management credentials to existing format:
+### **Database Tables**
 
-```json
-{
-  "database_passwords": {
-    "cigar": "your_secure_cigar_db_password",
-    "tobacco": "your_secure_tobacco_db_password"
-  },
-  "secret_key_bases": {
-    "cigar": "your_rails_secret_key_base_for_cigar",
-    "tobacco": "your_rails_secret_key_base_for_tobacco"
-  },
-  "hosting_management": {
-    "admin_username": "admin",
-    "admin_password": "your_secure_admin_password",
-    "jwt_secret": "your_jwt_secret_key_here",
-    "api_token": "your_api_token_for_cli_access"
-  },
-  "ssl_config": {
-    "cigar": {
-      "domain": "cigars.remoteds.us",
-      "cert_path": "/etc/letsencrypt/live/cigars.remoteds.us/fullchain.pem",
-      "key_path": "/etc/letsencrypt/live/cigars.remoteds.us/privkey.pem"
-    },
-    "tobacco": {
-      "domain": "tobacco.remoteds.us",
-      "cert_path": "/etc/letsencrypt/live/tobacco.remoteds.us/fullchain.pem",
-      "key_path": "/etc/letsencrypt/live/tobacco.remoteds.us/privkey.pem"
-    },
-    "hosting": {
-      "domain": "hosting.remoteds.us",
-      "cert_path": "/etc/letsencrypt/live/hosting.remoteds.us/fullchain.pem",
-      "key_path": "/etc/letsencrypt/live/hosting.remoteds.us/privkey.pem"
-    }
-  }
-}
+**`apps` table** - Rails application configuration:
+```sql
+CREATE TABLE apps (
+    app_key VARCHAR(50) PRIMARY KEY,
+    app_name VARCHAR(100) NOT NULL,
+    subdomain VARCHAR(100) NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    github_repo VARCHAR(500) NOT NULL,
+    document_root VARCHAR(500) NOT NULL,
+    database_name VARCHAR(100) NOT NULL,
+    database_username VARCHAR(100) NOT NULL,
+    database_password TEXT NOT NULL,
+    secret_key_base TEXT NOT NULL,
+    api_token VARCHAR(255) NOT NULL,
+    json_api_url TEXT,
+    openrouter_api_key TEXT,
+    cert_path VARCHAR(500),
+    key_path VARCHAR(500),
+    port INTEGER DEFAULT 3000,
+    enabled BOOLEAN DEFAULT true,
+    backup_enabled BOOLEAN DEFAULT false,
+    backup_schedule VARCHAR(50) DEFAULT '0 2 * * *',
+    backup_retention_days INTEGER DEFAULT 30,
+    local_code_path VARCHAR(500),
+    deployed_server VARCHAR(255) DEFAULT 'asterra.remoteds.us',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-Notes:
-- Use Let’s Encrypt default live paths above. Do not commit private keys. Ensure `ssl_config` reflects LE paths to keep Nginx templates consistent.
-- ACME contact email is stored in `config.json` as `letsencrypt_email`.
+**`hms_config` table** - HMS configuration:
+```sql
+CREATE TABLE hms_config (
+    subdomain VARCHAR(100),
+    domain VARCHAR(255),
+    database_name VARCHAR(100),
+    database_username VARCHAR(100),
+    database_password TEXT,
+    database_port INTEGER,
+    database_host VARCHAR(255),
+    admin_username VARCHAR(100),
+    admin_password TEXT,
+    jwt_secret TEXT,
+    api_token VARCHAR(255),
+    ...
+);
+```
+
+### **Secret Deployment Flow**
+
+1. Secrets stored in database
+2. `deploy-secure-sync.py` reads from database
+3. Writes secrets as `Environment=` variables to systemd service files:
+   - `/etc/systemd/system/puma-{app}.service` for Rails apps
+   - `/etc/systemd/system/hms-api.service` for HMS
+4. Services restart with new environment variables
+5. NO files containing secrets on disk
+
+### **SSL Certificates**
+
+Let's Encrypt certificates managed automatically:
+- Stored in `/etc/letsencrypt/live/{domain}/`
+- Paths saved in database `cert_path` and `key_path` fields
+- Auto-renewal handled by certbot
 
 ## 🌐 **Remote Web Interface Features**
 

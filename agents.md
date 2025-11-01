@@ -1,8 +1,65 @@
 # Agents.md: Master Development Rules & System Architecture
 
 **Status**: ✅ **GOLDEN RULES DOCUMENT** - Must be read before any development work  
-**Last Updated**: October 29, 2025  
-**Version**: 3.0
+**Last Updated**: October 31, 2025  
+**Version**: 3.1 - CRITICAL DATABASE-FIRST RULES ADDED
+
+---
+
+## 🚨 CRITICAL RULES - NEVER VIOLATE THESE 🚨
+
+### **RULE #1: NO .env FILES OR .secrets.json FILES ON SERVER**
+
+**THIS IS ABSOLUTELY MANDATORY - READ CAREFULLY:**
+
+1. **NO .env files on the server** - EVER. Not `.env.production`, not `.env.local`, not `/opt/hosting-api/.env`. NOTHING.
+2. **NO .secrets.json files on the server** - Not for Rails apps, not for HMS. NO FILES.
+3. **NO config.json files on the server** - Database is the ONLY config source.
+4. **ALL secrets come from the database** - `hosting_production` PostgreSQL database is the ONLY source of truth.
+5. **Secrets go DIRECTLY into systemd service files** - Write them as `Environment=` variables in `/etc/systemd/system/puma-{app}.service` AND `/etc/systemd/system/hms-api.service`
+
+**THIS APPLIES TO:**
+- ✅ Rails apps (cigar, tobacco, whiskey) - Secrets from `apps` table
+- ✅ HMS (Hosting Management System) - Secrets from `hms_config` table
+
+**Example of CORRECT systemd service file:**
+```ini
+[Service]
+Environment=RAILS_ENV=production
+Environment=SECRET_KEY_BASE={value_from_database}
+Environment=CIGAR_DATABASE_PASSWORD={value_from_database}
+Environment=CIGAR_API_TOKEN={value_from_database}
+Environment=OPENROUTER_API_KEY={value_from_database}
+```
+
+**WRONG - NEVER DO THIS:**
+```ini
+EnvironmentFile=/var/www/cigar/.env.production  ❌ NEVER
+EnvironmentFile=/var/www/cigar/shared/.env.production  ❌ NEVER
+```
+
+### **RULE #2: Deployment Flow (FOLLOW EXACTLY)**
+
+For deploying cigar app (same pattern for tobacco/whiskey):
+
+1. **First deployment only:** Setup database user on postgres server
+2. `python manager.py deploy --app cigar --skip-migrations` 
+   - Clone repo, bundle install, setup nginx config
+3. `python deploy-secure-sync.py --app cigar`
+   - Read secrets from `hosting_production` database
+   - Write directly to `/etc/systemd/system/puma-cigar.service` as Environment= variables
+   - **NO .env files created**
+4. `python manager.py certbot-issue --app cigar --prod`
+   - Issue SSL certificate
+5. `python manager.py deploy --app cigar --migrate-only`
+   - Run `rake db:create` (first time) or `rake db:migrate` (subsequent)
+6. Compile assets
+7. `systemctl restart nginx`
+8. `systemctl start puma-cigar`
+9. Verify: `systemctl status puma-cigar --no-pager`
+10. Check logs: `journalctl -u puma-cigar -n 50 --no-pager`
+
+**DO NOT deviate from this flow. DO NOT add .env files. DO NOT create temporary secrets files.**
 
 ---
 
