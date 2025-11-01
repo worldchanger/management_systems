@@ -1,5 +1,292 @@
 # Changelog
 
+## 2025-11-01 (Part 2) — Documentation Folder Structure Reorganization
+
+### 🎯 **MAJOR UPDATE**: Documentation Organized into Folder Hierarchy
+
+**Author**: AI Agent (Cascade)  
+**Status**: ✅ Complete  
+**Type**: Documentation Structure Enhancement
+
+---
+
+### 📁 **Folder Structure Created**
+
+#### New Organization
+Created four main folders to organize all documentation:
+1. **application-design-documents/** - Complete app design specifications
+2. **deployment-guides/** - Step-by-step deployment procedures
+3. **architecture-security/** - Architecture plans and security protocols
+4. **reference/** - Change tracking, dev guides, and historical docs
+
+#### File Moves
+- **Application Design Docs** → `application-design-documents/`
+  - cigar-management-system.md
+  - tobacco-management-system.md
+  - whiskey-management-system.md
+
+- **Deployment Guides** → `deployment-guides/`
+  - CIGAR_DEPLOYMENT_GUIDE.md
+  - TOBACCO_DEPLOYMENT_GUIDE.md
+  - HOSTING_DEPLOYMENT_GUIDE.md
+  - COMPLETE_DEPLOYMENT_GUIDE.md
+
+- **Architecture & Security** → `architecture-security/`
+  - ARCHITECTURE_PLAN.md
+  - ARCHITECTURE_SUMMARY.md
+  - SECURITY_GUIDE.md
+  - SSL_SETUP.md
+  - DEPLOYMENT_PRACTICES.md
+
+- **Reference Materials** → `reference/`
+  - CHANGELOG.md (this file)
+  - LOCAL_RAILS_DEVELOPMENT.md
+  - DEPLOYMENT_CHECKLIST.md
+  - QUICK_START.md
+  - KANBAN_POSTGRES_IMPLEMENTATION.md
+  - IMPLEMENTATION_PLAN.md
+  - IMPLEMENTATION_SUMMARY.md
+  - DEPLOYMENT_COMPLETE.md
+  - DECOMMISSION_SCRIPT_FIX.md
+  - TODO.md
+
+---
+
+### 📝 **Documentation Updates**
+
+#### README.md Updated
+- Updated all links to reflect new folder structure
+- Added folder hierarchy visualization
+- Updated quick reference tables with new paths
+- Maintained all navigation and cross-references
+
+#### agents.md Cleaned Up
+- **Removed** detailed app-specific implementation details
+- **Replaced** with concise overviews and links to dedicated docs
+- **Added** whiskey app section with proper documentation link
+- **Streamlined** to focus on master rules and high-level architecture
+- **Preserved** critical deployment workflows and security rules
+
+Example transformation:
+```
+Before: 200+ lines of detailed cigar app models, controllers, views
+After: Concise overview with link to docs/application-design-documents/cigar-management-system.md
+```
+
+---
+
+### 🎯 **Benefits**
+
+#### Improved Navigation
+- Clear folder hierarchy matches document categories
+- Easier to find related documents
+- Logical grouping by purpose (design, deployment, security, reference)
+
+#### Better Maintainability
+- Related documents grouped together
+- Easier to update entire categories
+- Clear separation of concerns
+
+#### Cleaner agents.md
+- Focused on master rules and workflows
+- No overwhelming detail in main rules file
+- Easy to reference full docs when needed
+
+#### Standard Practice
+- Follows common documentation patterns
+- Folder names use kebab-case (industry standard)
+- Linkable from README with relative paths
+
+---
+
+### 📊 **Final Structure**
+
+```
+/docs/
+├── README.md                              # Master index
+│
+├── application-design-documents/          # 📁 App Design
+│   ├── cigar-management-system.md
+│   ├── tobacco-management-system.md
+│   └── whiskey-management-system.md
+│
+├── deployment-guides/                     # 📁 Deployment
+│   ├── CIGAR_DEPLOYMENT_GUIDE.md
+│   ├── TOBACCO_DEPLOYMENT_GUIDE.md
+│   ├── HOSTING_DEPLOYMENT_GUIDE.md
+│   └── COMPLETE_DEPLOYMENT_GUIDE.md
+│
+├── architecture-security/                 # 📁 Architecture & Security
+│   ├── ARCHITECTURE_PLAN.md
+│   ├── ARCHITECTURE_SUMMARY.md
+│   ├── SECURITY_GUIDE.md
+│   ├── SSL_SETUP.md
+│   └── DEPLOYMENT_PRACTICES.md
+│
+└── reference/                             # 📁 Reference
+    ├── CHANGELOG.md (this file)
+    ├── LOCAL_RAILS_DEVELOPMENT.md
+    ├── DEPLOYMENT_CHECKLIST.md
+    ├── QUICK_START.md
+    └── [other reference docs]
+```
+
+---
+
+### ✅ **Verification**
+
+- [x] All files moved to appropriate folders
+- [x] README.md links updated and verified
+- [x] agents.md cleaned up and streamlined
+- [x] Folder structure follows best practices
+- [x] All documents remain accessible
+- [x] No broken links
+- [x] Cross-references maintained
+
+---
+
+### 🔄 **Migration Notes**
+
+- All existing links in README.md updated to new paths
+- agents.md now references full docs instead of duplicating content
+- No breaking changes - all docs still accessible
+- Folder names use kebab-case for web compatibility
+- Can easily link to folders from markdown
+
+---
+
+## 2025-11-01 (Part 1) — Documentation Reorganization & App Design Extraction
+
+### 🎯 **MAJOR UPDATE**: Complete Documentation Structure Overhaul
+
+**Author**: AI Agent (Cascade)  
+**Status**: ✅ Complete  
+**Type**: Documentation Enhancement
+
+---
+
+### 📚 **Documentation**
+
+#### New Documentation Structure
+- **Created** `/docs/README.md` - Master documentation index with complete navigation
+  - Full table of contents for all documentation
+  - Organization by application, architecture, deployment, security
+  - Quick reference tables and search guides
+  - Documentation maintenance standards
+  
+#### Application Design Documents Created
+- **Created** `/docs/cigar-management-system.md` - Complete cigar app design
+  - Full database schema and domain model
+  - Business logic and features documentation
+  - OCR integration workflow
+  - API endpoints and controller specifications
+  - Deployment configuration and environment variables
+  - Dependencies and testing requirements
+  
+- **Created** `/docs/tobacco-management-system.md` - Complete tobacco app design
+  - Database schema with weight-based tracking
+  - Domain model and business logic
+  - Type classification system
+  - API endpoints and controller specifications
+  - Deployment configuration and environment variables
+  - Key differences from cigar app documented
+  
+- **Updated** `/docs/whiskey-management-system.md` - Enhanced with deployment info
+  - Added production configuration section
+  - Added deployment methods and Nginx configuration
+  - Added environment variables section
+  - Added dependencies and installation instructions
+  - Added related documentation links
+  - Updated header with status and version info
+
+#### Documentation Extracted from agents.md
+- **Extracted** detailed app design information from `agents.md` into separate files
+- **Preserved** master rules and architecture overview in `agents.md`
+- **Created** single source of truth for each application
+- **Improved** documentation discoverability and maintainability
+
+#### Cross-Reference Improvements
+- **Added** navigation links between all related documents
+- **Standardized** document headers with "Last Updated" and version info
+- **Standardized** table of contents format across all documents
+- **Improved** consistency in formatting and structure
+
+---
+
+### 🎯 **Benefits**
+
+#### Improved Organization
+- Centralized documentation index for easy navigation
+- Application designs separated from deployment rules
+- Clear hierarchy: Master Rules → Index → App Docs → Deployment Guides
+
+#### Better Maintainability
+- Single source of truth for each application design
+- Easier to update app-specific information
+- Reduced duplication across documents
+- Clear ownership and update tracking
+
+#### Enhanced Discoverability
+- Master index with comprehensive navigation
+- Quick reference tables for common tasks
+- Search by task, application, or document type
+- Related documentation links on every page
+
+#### Documentation Integrity
+- Verification checklist for completeness
+- Conflict resolution guidelines
+- Regular review schedule
+- Update process documented
+
+---
+
+### 📊 **Documentation Inventory**
+
+#### Created Files
+1. `docs/README.md` - Master documentation index (NEW)
+2. `docs/cigar-management-system.md` - Complete design (NEW)
+3. `docs/tobacco-management-system.md` - Complete design (NEW)
+
+#### Updated Files
+1. `docs/whiskey-management-system.md` - Enhanced with deployment info
+2. `docs/CHANGELOG.md` - This file
+
+#### Verified Files
+- `docs/ARCHITECTURE_PLAN.md` - System architecture (current, no changes needed)
+- `docs/CIGAR_DEPLOYMENT_GUIDE.md` - Deployment procedures (current)
+- `docs/TOBACCO_DEPLOYMENT_GUIDE.md` - Deployment procedures (current)
+- `docs/HOSTING_DEPLOYMENT_GUIDE.md` - HMS deployment (current)
+- `docs/SECURITY_GUIDE.md` - Security protocols (current)
+- `docs/SSL_SETUP.md` - Certificate management (current)
+
+---
+
+### 🔄 **Migration Notes**
+
+#### From agents.md to App Docs
+- Detailed cigar app design → `cigar-management-system.md`
+- Detailed tobacco app design → `tobacco-management-system.md`
+- Whiskey app info enhanced in existing doc
+- Master rules and workflow remain in `agents.md`
+
+#### No Breaking Changes
+- All existing documentation remains valid
+- New documents complement existing structure
+- agents.md still serves as master rules document
+- All deployment guides unchanged
+
+---
+
+### ✅ **Next Steps**
+
+1. **Review** new documentation structure with team
+2. **Update** agents.md to reference new app design documents
+3. **Create** hosting-management-system.md design document (if needed)
+4. **Update** ARCHITECTURE_PLAN.md to include all four apps
+5. **Verify** manager.py supports whiskey app deployment
+
+---
+
 ## 2025-10-29 — Kanban System PostgreSQL Migration + Tag Management
 
 ### 🎯 **MAJOR UPDATES**: Database-Backed Kanban with Full Tag Management

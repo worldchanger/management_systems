@@ -8,58 +8,150 @@
 
 ## 🚨 CRITICAL RULES - NEVER VIOLATE THESE 🚨
 
-### **RULE #1: NO .env FILES OR .secrets.json FILES ON SERVER**
+### **RULE #1: DATABASE-FIRST ARCHITECTURE - All Secrets from PostgreSQL**
 
 **THIS IS ABSOLUTELY MANDATORY - READ CAREFULLY:**
 
+#### **On Remote Server (Linux/Ubuntu):**
 1. **NO .env files on the server** - EVER. Not `.env.production`, not `.env.local`, not `/opt/hosting-api/.env`. NOTHING.
 2. **NO .secrets.json files on the server** - Not for Rails apps, not for HMS. NO FILES.
 3. **NO config.json files on the server** - Database is the ONLY config source.
-4. **ALL secrets come from the database** - `hosting_production` PostgreSQL database is the ONLY source of truth.
+4. **ALL secrets come from the database** - `hosting_production` PostgreSQL database on `asterra.remoteds.us` is the ONLY source of truth.
 5. **Secrets go DIRECTLY into systemd service files** - Write them as `Environment=` variables in `/etc/systemd/system/puma-{app}.service` AND `/etc/systemd/system/hms-api.service`
 
-**THIS APPLIES TO:**
-- ✅ Rails apps (cigar, tobacco, whiskey) - Secrets from `apps` table
-- ✅ HMS (Hosting Management System) - Secrets from `hms_config` table
+#### **On Local Mac (Darwin):**
+1. **✅ .env files ARE allowed** - Only on Mac localhost for local development
+2. **✅ .secrets.json allowed** - For local development reference only
+3. **⚠️ Before writing .env files**: Check `uname` - if returns `Linux` (remote server), use database; if returns `Darwin` (Mac), can use .env files
+4. **✅ All .env files must be in .gitignore**
 
-**Example of CORRECT systemd service file:**
+**THIS APPLIES TO:**
+- ✅ Rails apps (cigar, tobacco, whiskey) - Secrets from `apps` table in `hosting_production` database
+- ✅ HMS (Hosting Management System) - Secrets from `hms_config` table in `hosting_production` database
+
+**Example of CORRECT systemd service file on remote server:**
 ```ini
 [Service]
 Environment=RAILS_ENV=production
-Environment=SECRET_KEY_BASE={value_from_database}
-Environment=CIGAR_DATABASE_PASSWORD={value_from_database}
-Environment=CIGAR_API_TOKEN={value_from_database}
-Environment=OPENROUTER_API_KEY={value_from_database}
+Environment=SECRET_KEY_BASE={value_from_hosting_production_database}
+Environment=CIGAR_DATABASE_PASSWORD={value_from_hosting_production_database}
+Environment=CIGAR_API_TOKEN={value_from_hosting_production_database}
+Environment=OPENROUTER_API_KEY={value_from_hosting_production_database}
 ```
 
-**WRONG - NEVER DO THIS:**
+**WRONG - NEVER DO THIS ON REMOTE SERVER:**
 ```ini
-EnvironmentFile=/var/www/cigar/.env.production  ❌ NEVER
-EnvironmentFile=/var/www/cigar/shared/.env.production  ❌ NEVER
+EnvironmentFile=/var/www/cigar/.env.production  ❌ NEVER ON LINUX
+EnvironmentFile=/var/www/cigar/shared/.env.production  ❌ NEVER ON LINUX
+EnvironmentFile=/opt/hosting-api/.env  ❌ NEVER ON LINUX
 ```
 
-### **RULE #2: Deployment Flow (FOLLOW EXACTLY)**
+### **RULE #2: USE DEPLOYMENT GUIDES**
 
-For deploying cigar app (same pattern for tobacco/whiskey):
+**All deployment procedures are documented in dedicated guides:**
+- **[docs/deployment-guides/CIGAR_DEPLOYMENT_GUIDE.md](docs/deployment-guides/CIGAR_DEPLOYMENT_GUIDE.md)** - Cigar app deployment
+- **[docs/deployment-guides/TOBACCO_DEPLOYMENT_GUIDE.md](docs/deployment-guides/TOBACCO_DEPLOYMENT_GUIDE.md)** - Tobacco app deployment  
+- **[docs/deployment-guides/HOSTING_DEPLOYMENT_GUIDE.md](docs/deployment-guides/HOSTING_DEPLOYMENT_GUIDE.md)** - HMS deployment
+- **[docs/deployment-guides/COMPLETE_DEPLOYMENT_GUIDE.md](docs/deployment-guides/COMPLETE_DEPLOYMENT_GUIDE.md)** - Full system deployment
 
-1. **First deployment only:** Setup database user on postgres server
-2. `python manager.py deploy --app cigar --skip-migrations` 
-   - Clone repo, bundle install, setup nginx config
-3. `python deploy-secure-sync.py --app cigar`
-   - Read secrets from `hosting_production` database
-   - Write directly to `/etc/systemd/system/puma-cigar.service` as Environment= variables
-   - **NO .env files created**
-4. `python manager.py certbot-issue --app cigar --prod`
-   - Issue SSL certificate
-5. `python manager.py deploy --app cigar --migrate-only`
-   - Run `rake db:create` (first time) or `rake db:migrate` (subsequent)
-6. Compile assets
-7. `systemctl restart nginx`
-8. `systemctl start puma-cigar`
-9. Verify: `systemctl status puma-cigar --no-pager`
-10. Check logs: `journalctl -u puma-cigar -n 50 --no-pager`
+**DO NOT create ad-hoc deployment procedures. Always follow the documented guides.**
 
-**DO NOT deviate from this flow. DO NOT add .env files. DO NOT create temporary secrets files.**
+---
+
+### **RULE #3: DEPLOYMENT AND DECOMMISSION COMMANDS**
+
+#### **🚀 Production Deployment Commands (Run from Mac localhost)**
+
+**First-Time Deployment (Setup):**
+```bash
+# Deploy cigar app (first time)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app cigar --setup --local"
+
+# Deploy tobacco app (first time)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app tobacco --setup --local"
+
+# Deploy whiskey app (first time)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app whiskey --setup --local"
+```
+
+**Redeployment (Updates):**
+```bash
+# Redeploy cigar app (runs migrations only)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app cigar --migrate-only"
+
+# Redeploy tobacco app (runs migrations only)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app tobacco --migrate-only"
+
+# Redeploy whiskey app (runs migrations only)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app whiskey --migrate-only"
+```
+
+**Health Check:**
+```bash
+# Check app health after deployment
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py health-check --app {app_name}"
+```
+
+#### **🚨 DESTRUCTIVE: Decommission Commands**
+
+**⚠️ CRITICAL WARNING: These commands are EXTREMELY DESTRUCTIVE**
+
+These commands will completely destroy the application and remove ALL traces from the server:
+- ❌ Stops and removes systemd services
+- ❌ Removes all application files from `/var/www/{app}`
+- ❌ Drops the PostgreSQL database
+- ❌ Removes database users/roles
+- ❌ Removes Nginx configuration
+- ❌ Removes SSL certificates
+- ✅ **PRESERVES database backups in `/opt/backups/postgresql/{app}`**
+
+**RULES:**
+1. **NEVER run these commands without explicit user permission**
+2. **User must say "decommission {app-name}"** for you to execute
+3. **Always confirm with user before running**
+4. **Can process multiple apps if user provides multiple names**
+5. **Always use `--force` flag** (prevents accidental runs)
+
+```bash
+# Decommission cigar app
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python decommission-app.py --app cigar --force"
+
+# Decommission tobacco app
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python decommission-app.py --app tobacco --force"
+
+# Decommission whiskey app
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python decommission-app.py --app whiskey --force"
+```
+
+**Example: User requests multiple decommissions**
+```bash
+# User says: "decommission cigar and tobacco"
+for app in cigar tobacco; do
+  ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python decommission-app.py --app $app --force"
+done
+```
+
+#### **📝 Local Development (Mac localhost)**
+
+**Use local-rails-apps.sh script:**
+```bash
+# Located at: /Users/bpauley/Projects/mangement-systems/local-rails-apps.sh
+
+# Start all apps locally
+./local-rails-apps.sh start all
+
+# Start specific app
+./local-rails-apps.sh start cigar
+
+# Stop all apps
+./local-rails-apps.sh stop all
+
+# Test specific app
+./local-rails-apps.sh test cigar
+
+# Restart app
+./local-rails-apps.sh restart cigar
+```
 
 ---
 
@@ -100,19 +192,22 @@ This workspace contains **three interconnected management systems** designed for
 management-systems/                    # Root workspace repository
 ├── agents.md                         # Master development rules
 ├── README.md                         # System overview
-├── config.json                       # Public configuration
-├── .secrets.json                     # Private credentials (gitignored)
-├── docs/                             # Consolidated documentation
-│   ├── CIGAR_DEPLOYMENT_GUIDE.md     # Cigar app procedures
-│   ├── TOBACCO_DEPLOYMENT_GUIDE.md   # Tobacco app procedures
-│   ├── HOSTING_DEPLOYMENT_GUIDE.md   # Hosting system procedures
-│   ├── CHANGELOG.md                  # Change tracking
-│   ├── TODO.md                       # ⚠️ DEPRECATED - Use Kanban API
-│   └── [Additional documentation]    # Reference materials
-├── cigar-management-system/          # Individual app repository
-├── tobacco-management-system/        # Individual app repository
-├── hosting-management-system/        # Individual app repository
-└── qa-test-repo/                     # Testing repository
+├── config.json                       # LOCAL MAC ONLY - Dev reference (gitignored)
+├── .secrets.json                     # LOCAL MAC ONLY - Dev secrets (gitignored)
+├── docs/                             # Consolidated documentation (organized in folders)
+│   ├── README.md                     # Documentation master index
+│   ├── application-design-documents/ # App design specifications
+│   ├── deployment-guides/            # Deployment procedures
+│   ├── architecture-security/        # Architecture & security docs
+│   └── reference/                    # Change tracking, dev guides
+├── cigar-management-system/          # Individual app repository (gitignored)
+├── tobacco-management-system/        # Individual app repository (gitignored)
+├── whiskey-management-system/        # Individual app repository (gitignored)
+├── hosting-management-system/        # Individual app repository (gitignored)
+└── qa-test-repo/                     # Testing repository (gitignored)
+
+**⚠️ IMPORTANT**: config.json and .secrets.json exist ONLY on Mac localhost for development.
+Production uses hosting_production PostgreSQL database as sole source of truth.
 ```
 
 ---
@@ -349,49 +444,52 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 ### **CRITICAL: deploy-secure-sync.py is the SOLE Secrets Deployment Method**
 
-**Location**: `hosting-management-system/deploy-secure-sync.py`
+**Location**: `hosting-management-system/deploy-secure-sync.py - Secret Deployment Script`
 
 **Purpose**: This script is the PRIMARY and ONLY method for deploying secrets to production. NO other script should deploy secrets.
 
-**What It Deploys**:
-1. **HMS Secrets** → `/opt/hosting-api/.env`
-   - Admin credentials
-   - JWT secrets
-   - Database credentials
-   
-2. **Rails App Secrets** → systemd service files (`/etc/systemd/system/puma-{app}.service`)
-   - `SECRET_KEY_BASE`
-   - `{APP}_DATABASE_PASSWORD`
-   - `{APP}_API_TOKEN`
+**What It Does**:
+1. **Reads secrets from `hosting_production` PostgreSQL database** on `asterra.remoteds.us`
+   - Rails apps: Reads from `apps` table
+   - HMS: Reads from `hms_config` table
+2. **Writes secrets DIRECTLY to systemd service files** on remote server
+   - Rails apps: `/etc/systemd/system/puma-{app}.service`
+   - HMS: `/etc/systemd/system/hms-api.service`
+3. **NO .env files created** - Secrets go directly into systemd Environment variables
 
-**Command-Line Options**:
+**Secrets Deployed**:
+- **Rails Apps**: SECRET_KEY_BASE, database_password, api_token, openrouter_api_key
+- **HMS**: Admin credentials, JWT secrets, database credentials
+
+**Security Flow**:
+- Connects to `hosting_production` database via PostgreSQL connection
+- Reads secrets from appropriate table (`apps` or `hms_config`)
+- Connects to remote server via Fabric/SSH
+- Updates systemd service files with `Environment=` lines
+- **NEVER creates .env files on Linux servers**
+- Reloads systemd and optionally restarts services
+
+**Usage**:
 ```bash
-# Deploy all secrets (HMS + both Rails apps) - DEFAULT
-python deploy-secure-sync.py
-python deploy-secure-sync.py --all
+# Deploy HMS secrets (from hms_config table)
+python deploy-secure-sync.py --app hms
 
-# Deploy specific Rails app only
+# Deploy Rails app secrets (from apps table)
 python deploy-secure-sync.py --app cigar
 python deploy-secure-sync.py --app tobacco
+python deploy-secure-sync.py --app whiskey
 
-# Deploy HMS secrets only
-python deploy-secure-sync.py --hms
-
-# Deploy both Rails apps (skip HMS)
-python deploy-secure-sync.py --rails-only
-
-# Deploy without restarting services
-python deploy-secure-sync.py --no-restart
+# Skip service restart (manual restart later)
 python deploy-secure-sync.py --app cigar --no-restart
 ```
 
 **Deployment Workflow**:
-1. Script reads secrets from `/.secrets.json` (root of workspace)
+1. Script connects to `hosting_production` database and reads secrets
 2. Connects to remote server via Fabric/SSH
-3. For HMS: Creates/updates `/opt/hosting-api/.env` with secure permissions
-4. For Rails: Updates systemd service files with Environment variables
-5. Reloads systemd daemon
-6. Restarts affected services (unless `--no-restart`)
+3. Updates systemd service files with Environment variables
+4. Reloads systemd daemon
+5. Restarts affected services (unless `--no-restart`)
+6. **NO temporary files created, NO .env files written**
 7. Verifies services are active
 
 **Integration with manager.py**:
@@ -411,8 +509,8 @@ python deploy-secure-sync.py --app cigar --no-restart
 - ✅ No secrets passed on command line
 - ✅ No plain-text files in Rails app directories  
 - ✅ Secrets stored in systemd Environment variables only
-- ✅ Secure file permissions (600 for .env, root-owned service files)
-- ✅ All secrets read from gitignored `.secrets.json`
+- ✅ Secure file permissions (root-owned service files)
+- ✅ All secrets read from `hosting_production` PostgreSQL database
 
 **Verification Commands**:
 ```bash
@@ -428,9 +526,10 @@ curl "https://cigars.remoteds.us/api/inventory/{TOKEN}"
 
 **NEVER**:
 - ❌ Deploy secrets via environment variables on command line
-- ❌ Create `.env` files in Rails app directories
+- ❌ Create `.env` files in Rails app directories on Linux servers
 - ❌ Pass secrets as CLI arguments to Rails commands
 - ❌ Use any deployment method other than `deploy-secure-sync.py`
+- ❌ Read secrets from .secrets.json on remote servers
 
 ---
 
@@ -439,27 +538,32 @@ curl "https://cigars.remoteds.us/api/inventory/{TOKEN}"
 ### **Before Any Development Work**
 1. **[README.md](README.md)** - System overview and navigation
 2. **This agents.md** - Master development rules (you are here)
-3. **Application-specific deployment guide**:
-   - [CIGAR_DEPLOYMENT_GUIDE.md](docs/CIGAR_DEPLOYMENT_GUIDE.md) for cigar app work
-   - [TOBACCO_DEPLOYMENT_GUIDE.md](docs/TOBACCO_DEPLOYMENT_GUIDE.md) for tobacco app work
-   - [HOSTING_DEPLOYMENT_GUIDE.md](docs/HOSTING_DEPLOYMENT_GUIDE.md) for hosting system work
+3. **[docs/README.md](docs/README.md)** - Complete documentation index
+4. **Application-specific deployment guide**:
+   - [CIGAR_DEPLOYMENT_GUIDE.md](docs/deployment-guides/CIGAR_DEPLOYMENT_GUIDE.md) for cigar app work
+   - [TOBACCO_DEPLOYMENT_GUIDE.md](docs/deployment-guides/TOBACCO_DEPLOYMENT_GUIDE.md) for tobacco app work
+   - [HOSTING_DEPLOYMENT_GUIDE.md](docs/deployment-guides/HOSTING_DEPLOYMENT_GUIDE.md) for hosting system work
 
 ### **Documentation Hierarchy**
 ```
 agents.md (GOLDEN RULES)
 ├── README.md (System Overview)
-├── docs/DEPLOYMENT_GUIDES.md (Application-specific)
-├── docs/CHANGELOG.md (Change tracking)
+├── docs/README.md (Documentation Master Index)
+├── docs/deployment-guides/ (Deployment procedures)
+├── docs/application-design-documents/ (App designs)
+├── docs/architecture-security/ (Architecture & security)
+├── docs/reference/ (Change tracking, dev guides)
 └── Individual repository README.md files
 ```
 
 ### **For Security Procedures**
-- **[SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md)** - Complete security protocols
-- **[SSL_SETUP.md](docs/SSL_SETUP.md)** - SSL certificate management
+- **[SECURITY_GUIDE.md](docs/architecture-security/SECURITY_GUIDE.md)** - Complete security protocols
+- **[SSL_SETUP.md](docs/architecture-security/SSL_SETUP.md)** - SSL certificate management
+- **[DEPLOYMENT_PRACTICES.md](docs/architecture-security/DEPLOYMENT_PRACTICES.md)** - Secure deployment methods
 
 ### **For Architecture Details**
-- **[ARCHITECTURE_PLAN.md](docs/ARCHITECTURE_PLAN.md)** - Detailed technical specifications
-- **[COMPLETE_DEPLOYMENT_GUIDE.md](docs/COMPLETE_DEPLOYMENT_GUIDE.md)** - Comprehensive deployment procedures
+- **[ARCHITECTURE_PLAN.md](docs/architecture-security/ARCHITECTURE_PLAN.md)** - Detailed technical specifications
+- **[COMPLETE_DEPLOYMENT_GUIDE.md](docs/deployment-guides/COMPLETE_DEPLOYMENT_GUIDE.md)** - Comprehensive deployment procedures
 
 ---
 
@@ -469,30 +573,31 @@ agents.md (GOLDEN RULES)
 1. **❌ NEVER copy .secrets.json to any remote server**
 2. **❌ NEVER commit secrets to version control**
 3. **❌ NEVER use hardcoded credentials in code**
-4. **✅ ALWAYS use environment variables for production**
+4. **✅ ALWAYS use environment variables for production in systemd service files**
 5. **✅ ALWAYS verify file permissions (600)**
 6. **✅ ALWAYS use www-data:www-data ownership**
 
 ### **Secrets Management**
-- **Location**: `/Users/bpauley/Projects/mangement-systems/.secrets.json`
-- **Purpose**: Central credential storage (NEVER committed)
+- **Location**: hosting_production database on asterra.remoteds.us in postgresql
+- **Purpose**: Central credential storage
 - **Usage**: Reference for environment variable generation
 - **Security**: Global workspace root, not in any app repo
 
 ### **Environment Variables**
-- Production uses `.env` files with 600 permissions
+- **Remote Server (Linux)**: NO .env files - secrets in systemd service files only
+- **Local Mac (Darwin)**: .env files allowed with 600 permissions for development
 - All sensitive data loaded from environment, not code
-- **Detailed procedures**: [SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md)
+- **Detailed procedures**: [SECURITY_GUIDE.md](docs/architecture-security/SECURITY_GUIDE.md)
 
 ### **SSL/HTTPS Management**
 - **Required**: Let's Encrypt certificates via certbot
 - **Automated**: Certificate issuance/renewal in deployment scripts
 - **No self-signed certs**: Use only trusted certificates
-- **Detailed setup**: [SSL_SETUP.md](docs/SSL_SETUP.md)
+- **Detailed setup**: [SSL_SETUP.md](docs/architecture-security/SSL_SETUP.md)
 
 ### **SSH and Access Control**
 - SSH key authentication only (no passwords)
-- Keys stored in `.secrets.json` (gitignored)
+- SSH keys stored in `hosting_production` database or local .secrets.json (Mac only)
 - **Deployment**: SSH keys deployed to remote servers during provisioning
 - **Ownership**: All web content runs as www-data:www-data
 
@@ -512,7 +617,7 @@ agents.md (GOLDEN RULES)
   * Website MUST load and function correctly locally before production deployment.
   * NO production deployments without: (1) passing tests, (2) local verification.
   * Git push to repository, THEN deploy to production via management tool.
-* **Security** : Use SSH keys for remote access (no passwords). Store secrets in .secrets.json (not committed to Git). Use HTTPS via Let's Encrypt or approved self-signed certificates (free options only), and ensure provisioning automates certificate issuance/renewal as part of deployments.
+* **Security** : Use SSH keys for remote access (no passwords). Store secrets in `hosting_production` PostgreSQL database (remote server) or .secrets.json (local Mac only, not committed to Git). Use HTTPS via Let's Encrypt, and ensure provisioning automates certificate issuance/renewal as part of deployments.
 * **Testing** : Include RSpec (for Rails) and Pytest (for Python) specs for all CRUD operations, API endpoints, and automation tasks.
 * **Version Control** : Main branch for production-ready code. Use semantic versioning (e.g., v1.0.0 tags). **Workspace Repository**: The root management-systems repository tracks consolidated documentation and configuration, while individual application repositories track their respective codebases.
 * **Documentation in Code** : Use inline comments, README.md per repo, and YARD/RDoc for Ruby, Sphinx/Pydoc for Python.
@@ -569,318 +674,106 @@ The hosting management system operates on TWO interfaces:
 
 ## 1. Cigar Management System (Ruby on Rails App)
 
-This is a web-based inventory tracker for cigars across multiple humidors. Features: CRUD for cigars/humidors/inventories, photo scanning with local OCR for add/remove, aggregation dashboards, capacity tracking, JSON API.
+**Overview:** Web-based inventory tracker for cigars across multiple humidors with OCR support, capacity tracking, and JSON API for Home Assistant integration.
 
-### Detailed Domain Model
+**Complete Documentation:** See **[docs/application-design-documents/cigar-management-system.md](docs/application-design-documents/cigar-management-system.md)** for full application design including:
+- Database schema and domain model
+- Business logic and OCR integration
+- API endpoints and JSON format
+- Controllers, views, and testing
+- Deployment configuration
 
-#### Core Relationships
-- **Location** has_many :humidors
-- **Humidor** has_many :cigars, has_many :brands, through: :cigars
-- **Cigar** belongs_to :brand, belongs_to :humidor
-- **Brand** has_many :cigars
+**Key Features:**
+- CRUD operations for cigars, humidors, brands, and locations
+- Photo scanning with Tesseract OCR for cigar band recognition
+- Capacity tracking across multiple humidors
+- Public JSON API: `GET /api/inventory/:token`
+- Bootstrap UI with responsive design
 
-#### Model Specifications
+**Technology:** Rails 7.2.2, PostgreSQL, Puma, Nginx, Tesseract OCR  
+**Deployment:** Via `manager.py deploy --app cigar`  
+**Production:** https://cigars.remoteds.us (Port 3001)
 
-**Location Model:**
-- Attributes: name (string), address (string), city (string), state (string), zip (string), country (string)
-- Associations: has_many :humidors, dependent: :destroy
-- Validations: presence of name, uniqueness of name within scope
-
-**Humidor Model:**
-- Attributes: name (string), location_id (foreign key), max_qty (integer), image (attachment)
-- Associations: belongs_to :location, has_many :humidor_cigars, has_many :cigars, through: :humidor_cigars
-- Validations: presence of name, location_id; numericality of max_qty > 0
-- Methods: available_capacity, used_capacity, capacity_percentage
-
-**Brand Model:**
-- Attributes: name (string), website_url (string)
-- Associations: has_many :cigars, dependent: :restrict_with_error
-- Validations: presence of name, uniqueness of name; valid URL format for website_url
-
-**Cigar Model:**
-- Attributes: cigar_name (string), brand_id (foreign key), rating (integer, 1-5), cigar_image (attachment for OCR)
-- Associations: belongs_to :brand, has_many :humidor_cigars, has_many :humidors, through: :humidor_cigars
-- Validations: presence of cigar_name, brand_id; inclusion of rating in 1..5
-
-**HumidorCigar Join Model (for quantity tracking):**
-- Attributes: humidor_id (foreign key), cigar_id (foreign key), quantity (integer, default 0)
-- Associations: belongs_to :humidor, belongs_to :cigar
-- Validations: presence of humidor_id, cigar_id; numericality of quantity >= 0
-- Callbacks: after_update :destroy_if_zero_quantity
-- Methods: transfer_quantity(to_humidor, amount), add_quantity(amount), remove_quantity(amount)
-
-#### Key Business Logic
-
-**Quantity Management:**
-- Use `has_many :through` with `HumidorCigar` join table to track quantities
-- Avoid duplicate cigar records - track quantity on relationship
-- When quantity reaches 0, automatically delete the `HumidorCigar` record
-- Support bulk adding (box purchase) and individual tracking
-
-**OCR Integration:**
-- `cigar_image` stored for OCR processing
-- Tesseract OCR to extract cigar_name and brand from cigar bands
-- Fuzzy string matching to identify existing cigars/brands
-- Manual fallback for unrecognized cigars
-
-**Capacity Management:**
-- `max_qty` on humidor prevents overfilling
-- Real-time capacity tracking across all humidors
-- Visual indicators for capacity status
-
-### Public JSON API Endpoint for Cigar Rails App.
-
-**Dynamic Link Requirements:**
-- Read-only public exposure of inventory data exposed with some sort of random token that doesn't change. This is to keep the url from being guessed, but allowing for easy access to the data for homeassistant to pull the inventory data.
-- Format matches existing Google Sheets output. It needs to have the humidor name, cigar name, brand name, rating, and quantity. Need all of the humidors and their cigars returned in the json output.:
-```json
-{
-  "cigars": {
-    "LargeHumidor": [
-      {
-        "cigar_name": "Undercrown",
-        "brand": "Drew Estate", 
-        "rating": 5,
-        "qty": 6
-      }
-    ],
-    "SmallHumidor": [
-      {
-        "cigar_name": "Coro #5",
-        "brand": "Test",
-        "rating": 4,
-        "qty": 6
-      }
-    ]
-  }
-}
-```
-
-**Endpoint:** `GET /api/inventory/:token`
-**Security:** UUID token with expiration, rotation capability
-
-### Repository Setup
-
-* Private GitHub repo: cigar-management-system.
-* Structure:
-
-```
-├── app
-│   ├── controllers
-│   ├── models
-│   ├── views
-│   ├── assets
-│   └── ...
-├── config
-│   ├── routes.rb
-│   ├── unicorn.rb
-│   └── ...
-├── db
-│   ├── migrate
-│   └── seeds.rb
-├── lib
-│   └── tasks (e.g., import_from_sheets.rake)
-├── spec
-├── Gemfile
-├── README.md
-└── .env.example
-```
-
-### Models (ActiveRecord)
-
-* **Humidor** : Represents a storage unit.
-* Attributes: name (string, unique), capacity (integer, default 0), timestamps.
-* Associations: has_many :inventories, has_many :cigars, through: :inventories.
-* Validations: validates :name, presence: true, uniqueness: true; validates :capacity, numericality: { greater_than_or_equal_to: 0 }.
-* Methods:
-  * available_slots: capacity - inventories.sum(:qty).
-  * used_slots: inventories.sum(:qty).
-* **Cigar** : Represents a cigar type.
-* Attributes: name (string), brand (string), rating (integer, 1-5), timestamps.
-* Associations: has_many :inventories, has_many :humidors, through: :inventories.
-* Validations: validates :name, :brand, presence: true; validates :rating, inclusion: { in: 1..5 }, allow_nil: true.
-* Methods:
-  * total_qty: inventories.sum(:qty).
-  * locations: inventories.map { |inv| { humidor: inv.humidor.name, qty: inv.qty } }.
-  * Class method totals: joins(:inventories).group(:id).sum("inventories.qty").
-* **Inventory** : Joins cigars to humidors with quantity.
-* Attributes: qty (integer, default 0), timestamps.
-* Associations: belongs_to :humidor, belongs_to :cigar.
-* Validations: validates :qty, numericality: { greater_than_or_equal_to: 0 }; After save, check humidor.available_slots >= 0 and rollback if over capacity (use callback).
-* Methods: None additional.
-
-Generate with: rails generate model ... as per earlier code.
-
-### Controllers and CRUD Operations
-
-All controllers inherit from ApplicationController. Use strong params. Auth: Basic HTTP auth for prod (add http_basic_authenticate_with).
-
-* **HumidorsController** (RESTful):
-  * Index: List all humidors with capacity/used/available. View: Table with edit/delete links.
-  * Show: Details + list of inventories. View: Details card + table of cigars.
-  * New/Create: Form for name/capacity.
-  * Edit/Update: Same form.
-  * Destroy: Delete if no inventories.
-  * CRUD Routes: resources :humidors.
-* **CigarsController** (RESTful):
-  * Index: List all with total_qty and locations (JSON-like summary).
-  * Show: Details + locations array.
-  * New/Create: Form for name/brand/rating.
-  * Edit/Update.
-  * Destroy: If no inventories.
-  * Routes: resources :cigars.
-* **InventoriesController** (RESTful, nested under humidors or cigars? Use shallow nesting).
-  * Index: All entries.
-  * Show/New/Create/Edit/Update/Destroy: Standard, but create/update handles qty changes with capacity check.
-  * Routes: resources :inventories.
-* **ScansController** (For photo scanning):
-  * Create (POST): Upload image, run OCR (Tesseract), fuzzy match to known cigars, update inventory based on mode (add/remove) and humidor_id.
-    * Params: image (file), mode (add/remove), humidor_id.
-    * If unrecognized, return error for manual entry.
-  * Routes: post '/scan', to: 'scans#create'.
-* **Api::InventoryController** (Namespaced for JSON API):
-  * Index: Return JSON as specified (grouped by humidor, with cigar details).
-  * Secure with API key param (check in before_action).
-  * Routes: namespace :api do get '/inventory', to: 'inventory#index' end.
-* **HomeController** (Dashboard):
-  * Index: Aggregate view (totals, locations, capacities). Load via JS/AJAX if dynamic.
-
-### Views (ERB)
-
-* Layout: application.html.erb with Bootstrap for styling (add gem 'bootstrap').
-* **Humidors** :
-* index.html.erb: Table `<table><tr>``<th>`Name `</th><th>`Capacity `</th><th>`Available `</th>`...`</tr>` with @humidors.each.
-* show.html.erb: `<h1>`<%= @humidor.name %>`</h1><p>`Available: <%= @humidor.available_slots %>`</p>` + inventories table.
-* _form.html.erb: <%= form_with model: humidor do |f| %> <%= f.text_field :name %> <%= f.number_field :capacity %> ....
-* **Cigars** :
-* Similar: Index with totals/locations in columns (use partial for locations list).
-* show.html.erb: Details + `<ul>`<%= @cigar.locations.each { |loc| `<li>`<%= loc[:humidor] %>: <%= loc[:qty] %>`</li>` } %>`</ul>`.
-* **Inventories** : Standard scaffold views.
-* **Dashboard (home/index.html.erb)** :
-* Sections: Totals (ul/li per cigar), Capacities (ul/li per humidor), Scan buttons.
-* JS for camera: Use `<video>`, `<canvas>` to capture, FormData POST to /scan.
-* Dropdown for humidor select (populate via API or instance vars).
-* **Partials** : _cigar.html.erb,_humidor.html.erb for reuse.
-
-### Additional Features
-
-* **OCR Integration** : In ScansController, use Tesseract.convert(image.path), fuzzy match with FuzzyStringMatch.
-* **Data Import** : Rake task to import from Google Sheets (use 'google_drive' gem).
-* **Capacity Logic** : Callbacks in Inventory to prevent overfill.
-* **Testing** : RSpec for models (validations, methods), controllers (CRUD responses, API JSON format).
+---
 
 ## 2. Tobacco Management System (Ruby on Rails App)
 
-Analogous to Cigar System, but for tobacco storage (tins, bags, loose tobacco). Similar structure with adapted domain model for tobacco-specific needs.
+**Overview:** Web-based inventory tracker for tobacco products and storage management with weight-based tracking and JSON API for Home Assistant integration.
 
-### Detailed Domain Model
+**Complete Documentation:** See **[docs/application-design-documents/tobacco-management-system.md](docs/application-design-documents/tobacco-management-system.md)** for full application design including:
+- Database schema and domain model
+- Weight-based tracking system
+- Tobacco type classification
+- API endpoints and JSON format
+- Deployment configuration
 
-#### Core Relationships
-- **TobaccoStorage** has_many :tobaccos
-- **Tobacco** belongs_to :tobacco_storage
+**Key Features:**
+- CRUD operations for tobacco products and storage units
+- Weight-based tracking in ounces (decimal precision)
+- Tobacco type classification (Loose Leaf, Flake, Plug, etc.)
+- Public JSON API: `GET /api/inventory/:token`
+- Bootstrap UI with green color scheme
 
-#### Model Specifications
+**Key Differences from Cigar App:**
+- Weight-based tracking (ounces) instead of quantity
+- Simpler two-level hierarchy (Storage → Tobacco)
+- No OCR integration (manual entry only)
+- Type classification instead of ratings
 
-**TobaccoStorage Model:**
-- Attributes: name (string), location (string), image (attachment)
-- Associations: has_many :tobaccos, dependent: :destroy
-- Validations: presence of name, uniqueness of name
+**Technology:** Rails 7.2.2, PostgreSQL, Puma, Nginx  
+**Deployment:** Via `manager.py deploy --app tobacco`  
+**Production:** https://tobacco.remoteds.us (Port 3002)
 
-**Tobacco Model:**
-- Attributes: tobacco_name (string), type (string), tobacco_storage_id (foreign key), qty_weight (decimal, in ounces), tobacco_image (attachment)
-- Associations: belongs_to :tobacco_storage
-- Validations: presence of tobacco_name, tobacco_storage_id; numericality of qty_weight > 0
+---
 
-#### Key Business Logic
+## 3. Whiskey Management System (Ruby on Rails App)
 
-**Weight-Based Tracking:**
-- Track tobacco by weight in ounces (not individual units)
-- Support partial usage with weight deduction
-- Visual storage capacity indicators
+**Overview:** Web-based collection tracker for whiskey bottles with detailed specifications, brand management, and comprehensive type taxonomy.
 
-**Tobacco Type Classification:**
-- `type` field stores tobacco form (Loose Leaf, Flake, etc.)
-- Supports empty type values for unclassified tobacco
-- Useful for filtering and categorization in UI
+**Complete Documentation:** See **[docs/application-design-documents/whiskey-management-system.md](docs/application-design-documents/whiskey-management-system.md)** for full application design including:
+- Database schema and domain model
+- Whiskey type taxonomy and classification
+- Brand and location management
+- Technology stack and dependencies
+- Deployment configuration
 
-**Image Management:**
-- Upload tobacco tin/bag images for reference
-- No OCR integration initially (manual data entry)
-- Image gallery for storage identification
+**Key Features:**
+- CRUD operations for whiskeys, brands, types, and locations
+- Detailed bottle specifications (ABV, proof, age, mash bill)
+- Comprehensive whiskey type taxonomy
+- Image storage for bottle reference
+- Bootstrap UI with amber/gold color scheme
 
-**JSON API Format:**
-- Read-only public exposure of inventory data exposed with some sort of random token that doesn't change. This is to keep the url from being guessed, but allowing for easy access to the data for homeassistant to pull the inventory data.
-- Format matches existing Google Sheets output. It needs to have the Tobacco Storage name, Tobacco name, type, and weight. Need all of the Tobacco Storage and their cigars returned in the json output.:
-```json
-{
-  "tobacco": {
-    "LargeTobaccoStorage": [
-      {
-        "tobacco_name": "Black Cherry",
-        "type": "Loose Leaf",
-        "qty_weight": 3
-      }
-    ],
-    "LargeVerticalTobaccoStorage": [
-      {
-        "tobacco_name": "Lane Bulk RLP-6",
-        "type": "Loose Leaf",  
-        "qty_weight": 4
-      },
-      {
-        "tobacco_name": "Maple Rum",
-        "type": "Loose Leaf",
-        "qty_weight": 12
-      },
-      {
-        "tobacco_name": "Cornell & Diehl Green River Vanilla",
-        "type": "Loose Leaf",
-        "qty_weight": 1
-      },
-      {
-        "tobacco_name": "Cornell & Diehl Autumn Evening",
-        "type": "Loose Leaf",
-        "qty_weight": 2
-      }
-    ],
-    "Tins": [
-      {
-        "tobacco_name": "Squadron Leader",
-        "type": "Flake",
-        "qty_weight": 1
-      }
-    ]
-  }
-}
-```
+**Technology:** Rails 7.2.2, PostgreSQL (production), SQLite3 (dev/test), Puma, Nginx  
+**Deployment:** Via `manager.py deploy --app whiskey`  
+**Production:** https://whiskey.remoteds.us (Port 3003)
 
-**Endpoint:** `GET /api/inventory/:token`
-**Security:** Same token-based access as Cigar system
+---
 
-* Repository: tobacco-management-system
-* Tech Stack: Ruby 3.3+, Rails 7.2+, Postgres, Bootstrap UI
-* Testing: RSpec for all CRUD operations
-* Deployment: Same infrastructure as Cigar system
+## 4. Hosting Management System (Python FastAPI + CLI)
 
-## 3. Hosting Management System
+**Overview:** Two-part system for deploying, monitoring, and managing all Rails applications. Consists of a local CLI tool (manager.py) and remote web interface (FastAPI).
 
-### Overview
+**Complete Documentation:** See deployment and architecture documentation:
+- **[docs/deployment-guides/HOSTING_DEPLOYMENT_GUIDE.md](docs/deployment-guides/HOSTING_DEPLOYMENT_GUIDE.md)** - Deployment procedures
+- **[docs/architecture-security/ARCHITECTURE_PLAN.md](docs/architecture-security/ARCHITECTURE_PLAN.md)** - System architecture
+- **[docs/architecture-security/SECURITY_GUIDE.md](docs/architecture-security/SECURITY_GUIDE.md)** - Security protocols
 
-The Hosting Management System consists of TWO components that work together:
+**Key Components:**
 
-**A. Local CLI Tool (Python)**
+**A. Local CLI Tool (manager.py)**
 * **Location**: Developer's laptop
 * **Purpose**: Primary deployment and automation engine
 * **Technology**: Python 3.12+ with Fabric/Paramiko, Click CLI framework
-* **No Web Server**: CLI-only, no Flask or web interface running locally
-* **Config Storage**: JSON files (config.json, .secrets.json)
+* **Config Storage**: Database-first architecture (hosting_production PostgreSQL)
+* **Commands**: Deploy apps, manage services, view logs, handle secrets
 
-**B. Remote Management Web Interface (FastAPI + Web UI)**
-* **Location**: Deployed at hosting.remoteds.us on the remote server (`/opt/hosting-api/`)
-* **Purpose**: Monitoring, control, and visibility dashboard
+**B. Remote Web Interface (FastAPI)**
+* **Location**: hosting.remoteds.us on remote server (`/opt/hosting-api/`)
+* **Purpose**: Monitoring, control, and dashboard
 * **Technology**: FastAPI with Jinja2 templates, JWT authentication, REST API
-* **Storage**: SQLite/JSON for lightweight state (no need for Postgres overhead)
-* **Key Advantage**: Python manages Rails apps (no circular dependency)
+* **Storage**: SQLite for task management, PostgreSQL for configuration
+* **Features**: Service control, log viewing, Kanban task management
 
 ### Infrastructure as Code Requirements
 
@@ -907,8 +800,8 @@ hosting-management-system/
 │   ├── services/          # Business logic (deploy, logs, configs)
 │   ├── templates/         # Jinja2 HTML templates
 │   └── static/            # CSS, JS, images
-├── config.json             # Server config (hosts, repos, domains)
-├── .secrets.json          # Passwords, SSH keys, hosting credentials (gitignored)
+├── config.json             # Local development config reference (gitignored)
+├── .secrets.json          # LOCAL MAC ONLY - Dev reference (gitignored, NOT deployed)
 ├── deployment_key         # Private SSH key for Git (gitignored)
 ├── deployment_key.pub     # Public SSH key for Git (gitignored)
 ├── templates/             # Nginx, Puma, systemd templates
@@ -920,9 +813,8 @@ hosting-management-system/
 │   ├── parse_logs.sh
 │   ├── check_status.sh
 │   └── restart_service.sh
-├── tests/                 # Pytest test suite (update existing)
-├── DEPLOYMENT_LOG.md      # Master deployment procedure log
-├── ARCHITECTURE_PLAN.md   # Detailed architecture documentation
+├── tests/                 # Pytest test suite
+├── docs/                  # Documentation folder with guides
 ├── README.md
 └── requirements.txt
 ```
@@ -936,10 +828,15 @@ hosting-management-system/
 
 ### Core Components (Local CLI Tool)
 
-* **Config Files**:
-  * `config.json`: Remote host, SSH paths, GitHub repos, domains, app metadata, backup dirs, `letsencrypt_email`
-  * `.secrets.json`: Database passwords, secret key bases, SSL configs (NEVER committed to Git)
-  * `deployment_key` / `.pub`: SSH keypair for Git operations on remote host
+* **Config Files (Mac localhost only)**:
+  * `config.json`: Local development reference for hosts, repos, domains (gitignored)
+  * `.secrets.json`: LOCAL MAC ONLY - Development reference for secrets (gitignored, NEVER deployed to server)
+  * `deployment_key` / `.pub`: SSH keypair for Git operations on remote host (gitignored)
+  
+* **Production Config Source**:
+  * **hosting_production PostgreSQL database** - ONLY source of truth for production
+  * All scripts read from database when deploying to remote server
+  * Local config files used only for Mac localhost development
 
 * **Fabric Tasks** (in manager.py):
   * `provision_server`: Install ALL system dependencies, setup www-data user, deploy SSH keys, install remote CLI tools
@@ -1050,29 +947,26 @@ This document is self-contained for AI implementation. Generate code per section
 **🔴 CRITICAL RULE**: All AI agents MUST read and understand these documentation guides before making any changes to the system. These documents contain the authoritative procedures and security protocols.
 
 ### **📖 Core Documentation (Must Read)**
-1. **[ARCHITECTURE_PLAN.md](hosting-management-system/ARCHITECTURE_PLAN.md)** - Complete system architecture and technical specifications
-2. **[SECURITY_GUIDE.md](hosting-management-system/SECURITY_GUIDE.md)** - Security protocols, secret management, and compliance requirements  
-3. **[SSL_SETUP.md](hosting-management-system/SSL_SETUP.md)** - Let's Encrypt SSL certificate management with certbot
-4. **[DEPLOYMENT_PRACTICES.md](hosting-management-system/DEPLOYMENT_PRACTICES.md)** - Security protocols and deployment methods
-5. **[COMPLETE_DEPLOYMENT_GUIDE.md](hosting-management-system/COMPLETE_DEPLOYMENT_GUIDE.md)** - Comprehensive guide for all three applications
+1. **[ARCHITECTURE_PLAN.md](docs/architecture-security/ARCHITECTURE_PLAN.md)** - Complete system architecture and technical specifications
+2. **[SECURITY_GUIDE.md](docs/architecture-security/SECURITY_GUIDE.md)** - Security protocols, secret management, and compliance requirements  
+3. **[SSL_SETUP.md](docs/architecture-security/SSL_SETUP.md)** - Let's Encrypt SSL certificate management with certbot
+4. **[DEPLOYMENT_PRACTICES.md](docs/architecture-security/DEPLOYMENT_PRACTICES.md)** - Security protocols and deployment methods
+5. **[COMPLETE_DEPLOYMENT_GUIDE.md](docs/deployment-guides/COMPLETE_DEPLOYMENT_GUIDE.md)** - Comprehensive guide for all applications
 
-### **📋 Implementation Documentation**
-6. **[CHANGELOG_TODO_IMPLEMENTATION.md](hosting-management-system/CHANGELOG_TODO_IMPLEMENTATION.md)** - Detailed TODO implementation technical notes
-7. **[PROJECT_COMPLETION_REPORT.md](hosting-management-system/PROJECT_COMPLETION_REPORT.md)** - Executive summary and current system status
-8. **[ISSUES_RESOLUTION_SUMMARY.md](hosting-management-system/ISSUES_RESOLUTION_SUMMARY.md)** - Resolution summary for recent fixes
-
-### **📜 Historical Documentation (Reference Only)**
-9. **[DEPLOYMENT_LOG.md](hosting-management-system/DEPLOYMENT_LOG.md)** - Historical deployment logs for reference
+### **📋 Reference Documentation**
+6. **[CHANGELOG.md](docs/reference/CHANGELOG.md)** - System change tracking
+7. **[IMPLEMENTATION_PLAN.md](docs/reference/IMPLEMENTATION_PLAN.md)** - Implementation details
+8. **[IMPLEMENTATION_SUMMARY.md](docs/reference/IMPLEMENTATION_SUMMARY.md)** - Implementation summary
 
 ---
 
 ## 🎯 **AI Agent Documentation Requirements**
 
 ### **📖 Before Starting Any Work**
-1. **READ ARCHITECTURE_PLAN.md** - Understand system architecture and component relationships
-2. **READ SECURITY_GUIDE.md** - Follow all security protocols without exception
-3. **READ DEPLOYMENT_PRACTICES.md** - Use correct deployment methods for each application
-4. **READ COMPLETE_DEPLOYMENT_GUIDE.md** - Use application-specific deployment commands
+1. **READ [ARCHITECTURE_PLAN.md](docs/architecture-security/ARCHITECTURE_PLAN.md)** - Understand system architecture and component relationships
+2. **READ [SECURITY_GUIDE.md](docs/architecture-security/SECURITY_GUIDE.md)** - Follow all security protocols without exception
+3. **READ [DEPLOYMENT_PRACTICES.md](docs/architecture-security/DEPLOYMENT_PRACTICES.md)** - Use correct deployment methods for each application
+4. **READ [COMPLETE_DEPLOYMENT_GUIDE.md](docs/deployment-guides/COMPLETE_DEPLOYMENT_GUIDE.md)** - Use application-specific deployment commands
 
 ### **🔍 For SSL/HTTPS Work**
 - **READ SSL_SETUP.md** - Use Let's Encrypt/certbot, NOT self-signed certificates
@@ -1080,20 +974,15 @@ This document is self-contained for AI implementation. Generate code per section
 - Verify certificate auto-renewal is configured
 
 ### **For Deployment Work**
-- **ALWAYS read [HOSTING_DEPLOYMENT_GUIDE.md](docs/HOSTING_DEPLOYMENT_GUIDE.md) before deploying the hosting app** and anything related to the hosting app/API (kanban API, etc.)
-- Use the correct deployment method for each application:
-  - **Hosting System**: Follow Method 1 in HOSTING_DEPLOYMENT_GUIDE.md
-    ```bash
-    cd hosting-management-system
-    git add -A && git commit -m "Description" && git push origin main
-    python manager.py deploy-hosting-api --project-dir /opt/hosting-api
-    python deploy-secure-sync.py
-    python manager.py hms-api-service status
-    ```
-  - **Cigar App**: `python deploy-cigar.py` + `python deploy-cigar-secrets.py`  
-  - **Tobacco App**: `python deploy-tobacco.py` + `python deploy-tobacco-secrets.py`
-- NEVER copy .secrets.json to remote servers
-- ALWAYS verify .env file permissions (600, correct ownership)
+- **ALWAYS read deployment guides** before deploying any application:
+  - [HOSTING_DEPLOYMENT_GUIDE.md](docs/deployment-guides/HOSTING_DEPLOYMENT_GUIDE.md) for hosting app
+  - [CIGAR_DEPLOYMENT_GUIDE.md](docs/deployment-guides/CIGAR_DEPLOYMENT_GUIDE.md) for cigar app
+  - [TOBACCO_DEPLOYMENT_GUIDE.md](docs/deployment-guides/TOBACCO_DEPLOYMENT_GUIDE.md) for tobacco app
+  - [COMPLETE_DEPLOYMENT_GUIDE.md](docs/deployment-guides/COMPLETE_DEPLOYMENT_GUIDE.md) for all apps
+- Use the correct deployment method from the guides - **DO NOT create ad-hoc procedures**
+- **NEVER copy .secrets.json to remote servers** - Database is source of truth
+- **Remote Server (Linux)**: NO .env files - secrets in systemd only
+- **Local Mac (Darwin)**: .env files allowed with 600 permissions
 
 ### **Deployment Troubleshooting Rules**
 - **If deployment breaks**: Do NOT reinvent the wheel
