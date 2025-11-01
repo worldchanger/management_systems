@@ -1,336 +1,289 @@
-# Whiskey Management System - Complete Application Design
+# Whiskey Management System - Application Design Document
 
-**Last Updated**: November 1, 2025  
-**Version**: 1.1  
-**Status**: ✅ **ACTIVE** - Production deployed at https://whiskey.remoteds.us
+**Last Updated**: November 1, 2025 2:20 PM EST  
+**Version**: 2.0  
+**Status**: ✅ **PRODUCTION** - https://whiskey.remoteds.us  
+**Repository**: [whiskey-management-system](https://github.com/worldchanger/whiskey-management-system)
 
 ---
 
 ## 📋 Table of Contents
 - [Overview](#overview)
 - [Technology Stack](#technology-stack)
-- [Database Schema](#database-schema)
-- [Domain Model](#domain-model)
-- ✨ [Features](#features)
-- [API Endpoints](#api-endpoints)
+- [Data Model](#data-model)
+- [Implementation Status](#implementation-status)
+- [Features](#features)
 - [Deployment](#deployment)
-- [Environment Variables](#environment-variables)
-- [Dependencies](#dependencies)
 - [Testing](#testing)
-- [Related Documentation](#related-documentation)
 
 ---
 
 ## 🎯 Overview
 
-The Whiskey Management System is a Ruby on Rails 7.2.2 application designed to help enthusiasts manage their whiskey collection with detailed tracking of bottles, brands, locations, and whiskey characteristics.
+The Whiskey Management System tracks whiskey bottle inventory across multiple locations with detailed specifications for each bottle.
 
-### **Purpose**
-Track whiskey collection with features for:
-- Whiskey bottle management with detailed specifications
-- ABV, proof, and age tracking
-- Mash bill composition documentation
-- Brand and location management
-- Comprehensive whiskey type taxonomy
-- Image storage for bottles
+### **Core Functionality**
+- Multi-location bottle inventory management
+- Brand and whiskey type cataloging
+- Detailed specifications (ABV, proof, age, mash bill)
+- Dashboard with comprehensive analytics
+- Image management for bottle photos
 
-### **Production Information**
+### **Production Details**
 - **URL**: https://whiskey.remoteds.us
 - **Port**: 3003
 - **Service**: `puma-whiskey.service`
-- **Document Root**: `/var/www/whiskey/`
 - **Database**: `whiskey_management_system_production` (PostgreSQL)
 
 ---
 
 ## 🛠️ Technology Stack
 
-### **Core Framework**
-- **Language**: Ruby 3.3+
-- **Framework**: Rails 7.2.2
-- **Database**: 
-  - Development/Test: SQLite3
-  - Production: PostgreSQL
-- **App Server**: Puma (4 workers)
-- **Web Server**: Nginx (reverse proxy)
-- **Authentication**: Devise
-
-### **Frontend**
-- **UI Framework**: Bootstrap 5 (amber/gold color scheme)
-- **JavaScript**: Hotwire (Turbo + Stimulus)
-- **Icons**: Bootstrap Icons
-- **Asset Pipeline**: cssbundling-rails with Sass
-
-### **Testing**
-- **Test Framework**: RSpec 6.1
-- **Factories**: FactoryBot
-- **Fake Data**: Faker
-- **Browser Testing**: Capybara
-- **Matchers**: Shoulda Matchers
-
-### **Storage**
-- **File Storage**: ActiveStorage
-- **Image Variants**: Bottle images with thumbnails
-
----
-
-## 🗄️ Database Schema
-
-### 1. **Whiskey Collection Management**
-- Track individual bottles with detailed specifications
-- Record ABV (Alcohol By Volume), proof, and age
-- Document mash bill composition (grain ratios)
-- Upload bottle images via ActiveStorage
-- Monitor quantity in possession
-
-### 2. **Whiskey Types**
-Comprehensive categorization including:
-- **Bourbon**: American whiskey (≥51% corn), aged in new charred oak
-- **Rye Whiskey**: Made from ≥51% rye, spicier profile
-- **Wheat Whiskey**: Made from ≥51% wheat, softer character
-- **Scotch**: Scottish whisky, malted barley, aged ≥3 years
-- **Irish Whiskey**: Triple-distilled Irish style
-- **Tennessee Whiskey**: Bourbon-style with charcoal filtering
-- **Canadian Whisky**: Light-bodied grain blends
-- **Japanese Whisky**: Precision-crafted, influenced by Scotch
-- **Single Malt**: 100% malted barley from one distillery
-- **Blended Whiskey**: Mixed malt and grain whiskeys
-
-### 3. **Brand Management**
-- Brand profiles with country of origin
-- Website URLs for reference
-- Detailed descriptions
-- Associated whiskey listings
-
-### 4. **Location Tracking**
-- Multiple storage locations (Home Bar, Cabinet, Cellar)
-- Address and description for each location
-- Inventory organization by location
-
----
-
-## 🏗️ Domain Model
-
-### **Core Relationships**
-```
-User (Devise)
-  └── Manages all whiskey data
-
-Location
-  └── has_many :whiskeys
-
-Brand
-  ├── has_many :whiskeys
-  └── attributes: name, description, website_url, country
-
-WhiskeyType
-  ├── has_many :whiskeys
-  └── attributes: name, description
-
-Whiskey
-  ├── belongs_to :brand
-  ├── belongs_to :whiskey_type
-  ├── belongs_to :location (optional)
-  ├── has_one_attached :bottle_image
-  └── attributes: name, description, mash_bill, abv, proof, age, quantity
-```
-
-### **Database Schema (Production)**
-- **Users**: Devise authentication
-- **Locations**: name, description, address
-- **Brands**: name, description, website_url, country
-- **WhiskeyTypes**: name, description
-- **Whiskeys**: name, description, mash_bill, abv, proof, age, quantity
-- **Active Storage**: bottle_image attachments
-
----
-
-## 🛠️ Technology Stack (Detailed)
-- **Framework**: Rails 7.2.2
+- **Backend**: Ruby 3.3+ / Rails 7.2.2
+- **Database**: PostgreSQL
 - **Authentication**: Devise
 - **Frontend**: Bootstrap 5, Hotwire (Turbo + Stimulus)
-- **Database**: 
-  - Development/Test: SQLite3
-  - Production: PostgreSQL (whiskey_management_system_production)
-- **Image Storage**: ActiveStorage with variants
-- **Testing**: RSpec 6.1, FactoryBot, Faker, Capybara, Shoulda Matchers
-- **Asset Pipeline**: cssbundling-rails with Sass, Bootstrap, Bootstrap Icons
+- **Testing**: RSpec, FactoryBot, Capybara
 
-### Deployment
-- **Local**: Port 3003
-- **Production**: https://whiskey.remoteds.us
-- **Server**: Puma (4 workers)
-- **Reverse Proxy**: Nginx with SSL (Let's Encrypt)
-- **Service**: systemd (puma-whiskey.service)
+---
 
-## Key Differentiators from Cigar/Tobacco Apps
-1. **ABV & Proof Tracking**: Specific to spirits
-2. **Mash Bill Documentation**: Grain composition unique to whiskey
-3. **Age Statements**: Critical for whiskey valuation
-4. **Whiskey Type Taxonomy**: More granular than cigar types
-5. **No Humidor Concept**: Direct location-to-bottle relationship
+## 🗄️ Data Model
 
-## User Credentials
-- **Production**: brian@thinkcreatebuildit.com
-- **Development**: admin_whiskey@localhost
-- **Password**: (stored in .secrets.json)
+### **Entity Relationship Diagram**
 
-## API Endpoints
-- `POST /users/sign_in` - Authentication
-- `GET /whiskeys` - List all whiskeys
-- `GET /whiskeys/:id` - Show whiskey details
-- `GET /brands` - List all brands
-- `GET /whiskey_types` - List all whiskey types
-- `GET /locations` - List all locations
+```mermaid
+erDiagram
+    USERS ||--o{ LOCATIONS : manages
+    BRANDS ||--o{ WHISKEYS : produces
+    WHISKEY_TYPES ||--o{ WHISKEYS : categorizes
+    LOCATIONS ||--o{ WHISKEYS : stores
+    WHISKEYS ||--o{ ACTIVE_STORAGE_ATTACHMENTS : has_images
+    
+    USERS {
+        bigint id PK
+        string email
+        string encrypted_password
+        timestamps created_at
+        timestamps updated_at
+    }
+    
+    LOCATIONS {
+        bigint id PK
+        string name UK
+        string description
+        string address
+        string city
+        string state
+        string zip
+        string country
+        timestamps created_at
+    }
+    
+    BRANDS {
+        bigint id PK
+        string name UK
+        string description
+        string website_url
+        string country
+        timestamps created_at
+    }
+    
+    WHISKEY_TYPES {
+        bigint id PK
+        string name UK
+        string description
+        string origin_country
+        timestamps created_at
+    }
+    
+    WHISKEYS {
+        bigint id PK
+        bigint brand_id FK
+        bigint whiskey_type_id FK
+        bigint location_id FK
+        string name
+        text description
+        string mash_bill
+        decimal abv
+        decimal proof
+        integer age
+        integer quantity
+        timestamps created_at
+    }
+```
 
-## Seed Data
-- 10 whiskey types with detailed descriptions
-- 8 premium brands (Buffalo Trace, Maker's Mark, Wild Turkey, Glenfiddich, Jameson, Jack Daniel's, Lagavulin, Yamazaki)
-- 3 locations (Home Bar, Whiskey Cabinet, Cellar Storage)
-- 6 sample whiskeys with complete specifications
+### **Models**
 
-## Testing
-- **Test Suite**: 25 RSpec examples
-- **Coverage**: Model validations, associations, factories
-- **Status**: ✅ All tests passing
+| Model | Repository Link | Description | Associations |
+|-------|----------------|-------------|--------------|
+| **User** | [app/models/user.rb](https://github.com/worldchanger/whiskey-management-system/blob/main/app/models/user.rb) | Authentication via Devise | N/A |
+| **Location** | [app/models/location.rb](https://github.com/worldchanger/whiskey-management-system/blob/main/app/models/location.rb) | Physical storage locations | has_many :whiskeys |
+| **Brand** | [app/models/brand.rb](https://github.com/worldchanger/whiskey-management-system/blob/main/app/models/brand.rb) | Whiskey distilleries/producers | has_many :whiskeys |
+| **WhiskeyType** | [app/models/whiskey_type.rb](https://github.com/worldchanger/whiskey-management-system/blob/main/app/models/whiskey_type.rb) | Whiskey categories (Bourbon, Scotch, etc.) | has_many :whiskeys |
+| **Whiskey** | [app/models/whiskey.rb](https://github.com/worldchanger/whiskey-management-system/blob/main/app/models/whiskey.rb) | Whiskey bottle specifications | belongs_to :brand, :whiskey_type, :location; has_many_attached :images |
 
-## Color Scheme
-Different from cigar (brown/tobacco) and tobacco (green) apps, whiskey uses amber/gold tones representing whiskey color.
+---
+
+## ✅ Implementation Status
+
+### **Core Features**
+
+- [x] **User Authentication** - Devise integration complete
+- [x] **Location Management** - Full CRUD with address fields
+- [x] **Brand Management** - Full CRUD with country/website
+- [x] **Whiskey Type Management** - Full CRUD with origin tracking
+- [x] **Whiskey Management** - Full CRUD with all specifications
+- [x] **Inventory Tracking** - Quantity per bottle in database
+- [x] **Dashboard** - Comprehensive analytics with charts
+- [x] **Image Upload** - Multiple images per whiskey (ActiveStorage)
+- [x] **Low Stock Alerts** - Dashboard warnings for bottles ≤2
+- [x] **Out of Stock Tracking** - Separate display for quantity=0
+
+### **Views & UI** (All Recently Fixed)
+
+- [x] **Dashboard** - `/dashboard` route with full analytics
+- [x] **Whiskeys** - Complete CRUD: index (table), show (all details), new, edit (full form)
+- [x] **Brands** - Complete CRUD: index (table with whiskey count), show (brand whiskeys list), new, edit
+- [x] **Locations** - Complete CRUD: index (table with whiskey count), show (location whiskeys list), new, edit
+- [x] **Whiskey Types** - Complete CRUD: index (table with whiskey count), show (type whiskeys list), new, edit
+- [x] **Responsive Design** - Bootstrap 5 matching cigar/tobacco apps
+- [x] **All Forms Working** - Proper params permitted in all controllers
+
+### **Dashboard Features**
+
+- [x] **Summary Cards** - Whiskey types, total bottles, brands, locations
+- [x] **Inventory Status** - Low stock alerts, out of stock warnings
+- [x] **Top Brands** - By bottle count with badges
+- [x] **Charts** - Bottles by type, brand (top 10), location (pie charts)
+- [x] **Recent Activity** - Recent additions with status badges
+- [x] **Low Stock Section** - Dedicated display for bottles running low
+
+### **Testing**
+
+- [ ] **Model Tests** - Need to be created
+- [ ] **Controller Tests** - Need to be created
+- [ ] **Feature Tests** - Need to be created
+
+### **Deployment**
+
+- [x] **Production Server** - Deployed at whiskey.remoteds.us
+- [x] **Systemd Service** - puma-whiskey.service configured
+- [x] **Nginx Reverse Proxy** - Port 3003 → 443
+- [x] **SSL Certificate** - Let's Encrypt configured
+- [x] **Database** - PostgreSQL production database
+- [x] **Health Check Endpoint** - /up for monitoring
+
+---
+
+## 🎨 Features
+
+### **Dashboard Analytics**
+- Summary cards for quick metrics
+- Inventory status with color-coded alerts:
+  - Green: Well stocked
+  - Yellow: Low stock (≤2 bottles)
+  - Red: Out of stock (0 bottles)
+- Top brands by bottle count
+- Distribution charts:
+  - By whiskey type (pie)
+  - By brand top 10 (pie)
+  - By location (pie)
+- Recent additions list with bottle counts
+- Low stock alert section
+
+### **Whiskey Specifications**
+- **Basic Info**: Name, brand, type, location
+- **Technical**: ABV, proof, age (years)
+- **Details**: Mash bill composition, description
+- **Inventory**: Current quantity with stock status
+- **Images**: Multiple bottle photos
+
+### **Brand Details**
+- Country of origin
+- Website URL
+- Description
+- List of all whiskeys from brand
+
+### **Location Details**
+- Full address (street, city, state, ZIP)
+- Country
+- List of all whiskeys at location
+
+### **Whiskey Type Details**
+- Origin country
+- Type description (characteristics, production methods)
+- List of all whiskeys of that type
 
 ---
 
 ## 🚀 Deployment
 
-### **Production Configuration**
-- **Server**: Ubuntu 25.04 LTS
-- **Location**: `/var/www/whiskey/`
-- **Service**: `puma-whiskey.service` (systemd)
-- **Port**: 3003 (internal)
-- **Public URL**: https://whiskey.remoteds.us
-- **SSL**: Let's Encrypt certificate
-- **Nginx**: Reverse proxy on port 443
-
-### **Deployment Method**
+### **Production Commands**
 ```bash
-cd /Users/bpauley/Projects/mangement-systems/hosting-management-system
-
-# Full deployment
-python manager.py deploy --app whiskey
-
-# Includes:
-# - Git pull from repository
-# - bundle install
-# - rails db:migrate
-# - rails assets:precompile
-# - Systemd service restart
-# - Nginx configuration
-```
-
-### **Nginx Configuration**
-```nginx
-server {
-    listen 443 ssl;
-    server_name whiskey.remoteds.us;
-    
-    ssl_certificate /etc/letsencrypt/live/whiskey.remoteds.us/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/whiskey.remoteds.us/privkey.pem;
-    
-    root /var/www/whiskey/public;
-    
-    location / {
-        try_files $uri @puma;
-    }
-    
-    location @puma {
-        proxy_pass http://unix:/var/www/whiskey/tmp/sockets/puma.sock;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
----
-
-## 🔐 Environment Variables
-
-### **Production Environment (.env)**
-Deployed via `deploy-secure-sync.py` to systemd service file:
-
-```ini
-[Service]
-Environment=RAILS_ENV=production
-Environment=SECRET_KEY_BASE=<from-database>
-Environment=WHISKEY_DATABASE_PASSWORD=<from-database>
-Environment=WHISKEY_API_TOKEN=<from-database>
-```
-
-**CRITICAL**: Secrets stored in `hosting_production` PostgreSQL database, NOT in .env files.
-
-### **Required Variables**
-- `RAILS_ENV`: production
-- `SECRET_KEY_BASE`: Rails secret key
-- `WHISKEY_DATABASE_PASSWORD`: PostgreSQL password
-- `WHISKEY_API_TOKEN`: API authentication token (if API implemented)
-
----
-
-## 📦 Dependencies
-
-### **Gemfile**
-```ruby
-# Core
-gem 'rails', '~> 7.2.2'
-gem 'pg', '~> 1.1'  # Production
-gem 'sqlite3', '~> 1.4'  # Development/Test
-gem 'puma', '~> 6.0'
-
-# Authentication
-gem 'devise'
-
-# Frontend
-gem 'cssbundling-rails'
-gem 'jsbundling-rails'
-gem 'turbo-rails'
-gem 'stimulus-rails'
-
-# Image Storage
-gem 'image_processing', '~> 1.2'
-
-# Testing
-group :development, :test do
-  gem 'rspec-rails', '~> 6.1'
-  gem 'factory_bot_rails'
-  gem 'faker'
-end
-
-group :test do
-  gem 'capybara'
-  gem 'shoulda-matchers'
-end
-```
-
-### **Installation**
-```bash
+# First-time deployment
+cd /var/www/whiskey
+git clone git@github.com:worldchanger/whiskey-management-system.git .
 bundle install
-npm install  # For JavaScript dependencies
+RAILS_ENV=production rails assets:precompile
+RAILS_ENV=production rails db:migrate
+sudo systemctl start puma-whiskey
+sudo systemctl enable puma-whiskey
 ```
+
+### **Redeployment**
+```bash
+cd /var/www/whiskey
+git pull origin main
+bundle install
+RAILS_ENV=production rails assets:precompile
+RAILS_ENV=production rails db:migrate
+sudo systemctl restart puma-whiskey
+```
+
+### **Health Check**
+```bash
+curl https://whiskey.remoteds.us/up
+```
+
+---
+
+## 🧪 Testing
+
+### **Test Suite**
+- **Framework**: RSpec
+- **Location**: `spec/` directory
+- **Run Command**: `bundle exec rspec`
+
+### **Test Coverage Needed**
+- Model validations and associations
+- Controller CRUD operations
+- Dashboard calculations
+- Form submissions
+- Stock status logic
+
+**See**: [Testing Strategy Document](../testing-strategies/whiskey-testing-strategy.md)
 
 ---
 
 ## 📚 Related Documentation
 
-- **[ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md)** - System architecture
-- **[../agents.md](../agents.md)** - Master development rules
-- **[SECURITY_GUIDE.md](SECURITY_GUIDE.md)** - Security protocols
-- **[README.md](README.md)** - Documentation index
-- **[CIGAR_DEPLOYMENT_GUIDE.md](CIGAR_DEPLOYMENT_GUIDE.md)** - Similar deployment patterns
-- **[TOBACCO_DEPLOYMENT_GUIDE.md](TOBACCO_DEPLOYMENT_GUIDE.md)** - Similar deployment patterns
+- [Testing Strategy](../testing-strategies/whiskey-testing-strategy.md)
+- [Architecture Overview](../architecture-security/ARCHITECTURE_SUMMARY.md)
 
 ---
 
-**This document serves as the complete design specification for the Whiskey Management System. All development, deployment, and documentation work should reference this as the single source of truth for application design.**
+## 🔄 Recent Updates (November 1, 2025)
 
-**Last Updated**: November 1, 2025  
-**Maintained by**: Development Team + AI Agents
+### **Complete UI Overhaul**
+- Fixed all whiskey views (show page was blank - now displays all data)
+- Created comprehensive forms for whiskeys (all fields working)
+- Built full CRUD for brands (index, show with whiskey list, forms)
+- Built full CRUD for locations (index, show with whiskey list, forms with address)
+- Built full CRUD for whiskey_types (index, show with whiskey list, forms)
+- Added /dashboard route
+- All controllers now have proper params permitted
+- All views styled with Bootstrap 5 matching cigar/tobacco apps
+
+---
+
+**Maintenance Note**: Update this document when models, controllers, or features change. Document all changes with implementation status checkboxes.
