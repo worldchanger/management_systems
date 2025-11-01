@@ -261,6 +261,10 @@ Change tracking, implementation notes, development guides, and historical refere
   - Migration from file-based TODO
 
 #### **Implementation Notes**
+- **[IMPLEMENTATION_GUIDE.md](reference/IMPLEMENTATION_GUIDE.md)** - ⭐ **CURRENT** - Implementation guide and tools
+  - Testing infrastructure (`test_apps.py`)
+  - HMS implementation status
+  - Technical procedures
 - **[IMPLEMENTATION_PLAN.md](reference/IMPLEMENTATION_PLAN.md)** - System implementation details
 - **[IMPLEMENTATION_SUMMARY.md](reference/IMPLEMENTATION_SUMMARY.md)** - Implementation summary
 - **[DEPLOYMENT_COMPLETE.md](reference/DEPLOYMENT_COMPLETE.md)** - Deployment completion notes
@@ -295,6 +299,7 @@ Change tracking, implementation notes, development guides, and historical refere
 │
 └── reference/                                     # 📁 Reference & History
     ├── CHANGELOG.md                               # Change tracking
+    ├── IMPLEMENTATION_GUIDE.md                    # Implementation guide
     ├── LOCAL_RAILS_DEVELOPMENT.md                 # Dev setup
     ├── DEPLOYMENT_CHECKLIST.md                    # Verification
     ├── QUICK_START.md                             # Quick reference
