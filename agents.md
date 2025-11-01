@@ -1,3 +1,20 @@
+---
+scope: project
+type: agents
+title: Master Development Rules & System Architecture
+status: golden
+version: 3.1
+last_updated: 2025-10-31
+owner: bpauley
+root_path: /Users/bpauley/Projects/mangement-systems
+visibility: internal
+priority: critical
+description: >
+  Core development rules for this project. Defines database-first architecture,
+  agent behavior, and system-level expectations. Must be read before any
+  development or automation runs.
+---
+
 # Agents.md: Master Development Rules & System Architecture
 
 **Status**: ✅ **GOLDEN RULES DOCUMENT** - Must be read before any development work  
@@ -74,17 +91,26 @@ ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py
 ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app whiskey --setup --local"
 ```
 
-**Redeployment (Updates):**
+**Redeployment (Updates) - RECOMMENDED METHOD:**
 ```bash
-# Redeploy cigar app (runs migrations only)
-ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app cigar --migrate-only"
+# Redeploy cigar app (pulls code, runs migrations, restarts)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app cigar --local"
 
-# Redeploy tobacco app (runs migrations only)
-ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app tobacco --migrate-only"
+# Redeploy tobacco app (pulls code, runs migrations, restarts)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app tobacco --local"
 
-# Redeploy whiskey app (runs migrations only)
-ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app whiskey --migrate-only"
+# Redeploy whiskey app (pulls code, runs migrations, restarts)
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app whiskey --local"
 ```
+
+**What `--local` flag does:**
+- ✅ Pulls latest code from GitHub
+- ✅ Runs `bundle install`
+- ✅ Runs `rails assets:precompile`
+- ✅ Runs `rails db:migrate` (safe - only new migrations)
+- ✅ Restarts application service
+- ❌ Does NOT wipe or recreate database
+- ❌ Does NOT run `db:setup` or `db:seed`
 
 **Health Check:**
 ```bash
@@ -146,12 +172,149 @@ done
 # Stop all apps
 ./local-rails-apps.sh stop all
 
-# Test specific app
-./local-rails-apps.sh test cigar
+# Check status
+./local-rails-apps.sh status
 
 # Restart app
 ./local-rails-apps.sh restart cigar
 ```
+
+---
+
+### **RULE #4: COMPREHENSIVE TESTING WORKFLOW**
+
+**MANDATORY: All code changes must follow this testing loop before deployment**
+
+#### **Testing Environments**
+- **Local (Darwin/Mac)**: Development/test environment, uses http://localhost:300X ports
+- **Remote (Linux)**: Production environment, uses https://*.remoteds.us domains
+
+#### **Complete Testing Loop (NEVER SKIP STEPS)**
+
+**1. Stop and Start Local Apps**
+```bash
+cd /Users/bpauley/Projects/mangement-systems
+./local-rails-apps.sh stop all
+./local-rails-apps.sh start all
+```
+
+**If any app fails to start:**
+- Fix the issue in development environment (NOT production)
+- Ensure RAILS_ENV=development (never production for local fixes)
+- Re-run unit tests after fix
+- Restart apps and verify they start successfully
+
+**2. Run Unit Tests Locally**
+```bash
+# Whiskey app
+cd whiskey-management-system && bundle exec rspec
+
+# Cigar app
+cd ../cigar-management-system && bundle exec rspec
+
+# Tobacco app (once RSpec added to Gemfile)
+cd ../tobacco-management-system && bundle exec rspec
+```
+
+**If any tests fail:**
+- Fix the code locally
+- Re-run tests until all pass
+- Do NOT proceed to curl tests until unit tests pass
+
+**3. Run Local curl Tests**
+```bash
+cd /Users/bpauley/Projects/mangement-systems
+./test-apps-local.sh
+```
+
+**Tests verify:**
+- Health endpoints (/up) return 200
+- Login pages (/users/sign_in) return 200
+- Protected routes (/dashboard, /cigars, etc.) return 302 (redirect to login)
+- All controller index/show/edit endpoints require authentication
+
+**If any curl tests fail:**
+- Fix the code locally
+- Re-run unit tests to ensure fix didn't break anything
+- Re-run curl tests until all pass
+- Do NOT deploy until all local tests pass
+
+**4. Verify Code Committed to GitHub**
+```bash
+# Check status in each app
+cd cigar-management-system && git status
+cd ../tobacco-management-system && git status
+cd ../whiskey-management-system && git status
+
+# If changes exist, commit and push
+git add -A
+git commit -m "Description of changes"
+git push origin main
+```
+
+**5. Check Remote Git Status**
+```bash
+# Only deploy if remote is behind
+ssh root@asterra.remoteds.us "cd /var/www/cigar && git fetch && git status"
+ssh root@asterra.remoteds.us "cd /var/www/tobacco && git fetch && git status"
+ssh root@asterra.remoteds.us "cd /var/www/whiskey && git fetch && git status"
+```
+
+**6. Deploy if Needed (Only if Remote is Behind)**
+```bash
+# Deploy using manager.py with --local flag
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app cigar --local"
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app tobacco --local"
+ssh root@asterra.remoteds.us "cd /opt/hosting-api && .venv/bin/python manager.py deploy --app whiskey --local"
+```
+
+**7. Run Remote curl Tests**
+```bash
+cd /Users/bpauley/Projects/mangement-systems
+./test-apps-remote.sh
+```
+
+**Tests verify same endpoints as local, but on production:**
+- Uses https://*.remoteds.us domains
+- Same authentication checks
+- Same protected route verification
+
+**If remote tests fail:**
+- Go back to step 1 (fix locally, test locally, redeploy)
+- NEVER make changes directly on production server
+- Always fix on local Mac, test, commit, then redeploy
+
+#### **Iterative Fix Process**
+
+**The loop continues until zero errors:**
+```
+Local Unit Tests → Local curl Tests → Commit → Deploy → Remote curl Tests
+     ↓ FAIL                              ↓ FAIL
+     └─────────── Fix locally ────────────┘
+```
+
+**CRITICAL RULES:**
+1. **Never skip local testing** - Always run both unit and curl tests locally first
+2. **Never deploy with failing tests** - All local tests must pass before deployment
+3. **Never fix on production** - All fixes happen on local Darwin environment
+4. **Always verify both environments** - Test locally AND remotely after each deployment
+5. **Only deploy if code changed** - Check git status before deploying
+6. **Test only what changed** - If testing specific app, only test that app
+7. **No hardcoded credentials** - Pull from environment variables in test scripts
+
+#### **Documentation Updates (MANDATORY)**
+
+**Every time you change functionality, you MUST update:**
+1. **Design Document** - Update implementation status and feature list
+2. **Testing Documentation** - Update test requirements
+3. **Unit Tests** - Add/modify tests for new/changed functionality
+4. **curl Test Scripts** - Update endpoint tests if routes changed
+
+**Location of documents:**
+- Design Docs: `/docs/application-design-documents/{app}-management-system.md`
+- Testing Docs: `/docs/testing-strategies/{app}-testing-strategy.md`
+- Unit Tests: `{app}-management-system/spec/`
+- curl Scripts: `/test-apps-local.sh` and `/test-apps-remote.sh`
 
 ---
 
