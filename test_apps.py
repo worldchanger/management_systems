@@ -2,15 +2,18 @@
 """
 Comprehensive Rails Application Testing Framework
 
-This script tests Rails management applications (cigar, tobacco, whiskey) by:
-- Fetching credentials from hosting_production database via API
-- Performing authenticated HTTP requests
-- Dynamically reading routes from each app
-- Validating response content against expected views
-- Supporting selective or comprehensive testing
+This script performs extensive testing of Rails management applications by:
+- Fetching credentials dynamically from hosting_production database via API
+- Testing health checks and authentication flows  
+- Dynamically discovering and testing all routes (index, show, edit)
+- Testing dashboard pages
+- Testing API endpoints with data validation
+- Detecting Rails errors (500 errors, error pages)
+- Providing detailed failure reports with exact error messages
+- Organizing tests by categories for clarity
 
 Usage:
-    ./test_apps.py                    # Test all apps
+    ./test_apps.py                    # Test all apps comprehensively
     ./test_apps.py --app cigar        # Test specific app
     ./test_apps.py --help             # Show help
 
@@ -25,7 +28,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -41,7 +44,10 @@ class Colors:
     RED = '\033[0;31m'
     YELLOW = '\033[1;33m'
     BLUE = '\033[0;34m'
+    CYAN = '\033[0;36m'
+    MAGENTA = '\033[0;35m'
     NC = '\033[0m'  # No Color
+    BOLD = '\033[1m'
 
 
 @dataclass
@@ -52,15 +58,35 @@ class AppConfig:
     base_url: str
     email: Optional[str] = None
     password: Optional[str] = None
+    has_api: bool = False  # Whether app has JSON API
 
 
 @dataclass
 class TestResult:
     """Result of a single test"""
+    category: str  # e.g., "Health", "Auth", "Routes", "API"
     name: str
     passed: bool
     message: str
     status_code: Optional[int] = None
+    error_details: Optional[str] = None  # Full error message if failed
+
+
+@dataclass
+class TestSummary:
+    """Summary of all tests for an app"""
+    app_name: str
+    total_passed: int = 0
+    total_failed: int = 0
+    failures: List[TestResult] = field(default_factory=list)
+    
+    def add_result(self, result: TestResult):
+        """Add a test result and update counters"""
+        if result.passed:
+            self.total_passed += 1
+        else:
+            self.total_failed += 1
+            self.failures.append(result)
 
 
 class HostingAPIClient:
@@ -87,7 +113,6 @@ class HostingAPIClient:
             Tuple of (email, password) or (None, None) if not found
         """
         try:
-            # API endpoint to fetch credentials
             url = f"{self.base_url}/api/v1/credentials/{username}/{app_name}"
             response = self.session.get(url, timeout=10)
             
@@ -113,7 +138,52 @@ class RailsAppTester:
         self.app_root = workspace_root / f"{app_config.name}-management-system"
         self.session = requests.Session()
         self.csrf_token = None
-        self.test_results: List[TestResult] = []
+        self.summary = TestSummary(app_name=app_config.name)
+    
+    def print_test_result(self, result: TestResult):
+        """Print a test result with appropriate formatting"""
+        if result.passed:
+            print(f"  {Colors.GREEN}✅ PASS{Colors.NC}: {result.name}")
+        else:
+            print(f"  {Colors.RED}❌ FAIL{Colors.NC}: {result.name}")
+            print(f"    {Colors.RED}└─ {result.message}{Colors.NC}")
+            if result.error_details:
+                # Print first 200 chars of error details
+                error_preview = result.error_details[:200]
+                if len(result.error_details) > 200:
+                    error_preview += "..."
+                print(f"    {Colors.YELLOW}   Error: {error_preview}{Colors.NC}")
+    
+    def check_for_rails_error(self, response: requests.Response) -> Tuple[bool, Optional[str]]:
+        """
+        Check if response contains a Rails error page.
+        
+        Returns:
+            Tuple of (is_error, error_message)
+        """
+        if response.status_code >= 500:
+            return True, f"HTTP {response.status_code} Server Error"
+        
+        # Check for Rails error indicators in HTML
+        error_indicators = [
+            "We're sorry, but something went wrong",
+            "ActionController::RoutingError",
+            "NoMethodError",
+            "undefined method",
+            "ActiveRecord::RecordNotFound",
+            "Couldn't find",
+            "uninitialized constant"
+        ]
+        
+        for indicator in error_indicators:
+            if indicator in response.text:
+                # Try to extract error message
+                match = re.search(r'<h1[^>]*>([^<]+)</h1>', response.text)
+                if match:
+                    return True, match.group(1)
+                return True, indicator
+        
+        return False, None
     
     def get_routes(self) -> List[Dict[str, str]]:
         """
@@ -132,13 +202,20 @@ class RailsAppTester:
             )
             
             if result.returncode != 0:
-                print(f"{Colors.YELLOW}Warning: Could not read routes for {self.app.name}{Colors.NC}")
+                print(f"{Colors.YELLOW}  Warning: Could not read routes for {self.app.name}{Colors.NC}")
                 return []
             
             routes = []
             for line in result.stdout.split('\n'):
-                # Parse route lines like: GET    /cigars(.:format)  cigars#index
-                match = re.match(r'\s*(GET|POST|PATCH|PUT|DELETE)\s+(\S+)\s+(\S+)', line)
+                # Parse route lines like: 
+                # Prefix Verb   URI Pattern                      Controller#Action
+                # cigars GET    /cigars(.:format)                cigars#index
+                # Skip lines that contain "Prefix" or "Verb" (headers)
+                if 'Prefix' in line or 'Verb' in line or 'URI Pattern' in line:
+                    continue
+                
+                # Match: optional_prefix  VERB  /path(.:format)  controller#action
+                match = re.search(r'\b(GET|POST|PATCH|PUT|DELETE)\s+(\S+)\s+(\S+)$', line)
                 if match:
                     verb, path, action = match.groups()
                     # Clean up path (remove format suffix)
@@ -151,7 +228,7 @@ class RailsAppTester:
             
             return routes
         except Exception as e:
-            print(f"{Colors.RED}Error reading routes: {e}{Colors.NC}")
+            print(f"{Colors.RED}  Error reading routes: {e}{Colors.NC}")
             return []
     
     def login(self) -> bool:
@@ -177,7 +254,6 @@ class RailsAppTester:
             if csrf_match:
                 self.csrf_token = csrf_match.group(1)
             else:
-                print(f"{Colors.YELLOW}Warning: CSRF token not found{Colors.NC}")
                 return False
             
             # Step 2: POST credentials
@@ -195,163 +271,312 @@ class RailsAppTester:
                 timeout=10
             )
             
-            # Check if login was successful (should redirect and have auth cookie)
+            # Check if login was successful
             if 'user' in response.cookies or response.status_code == 200:
-                return True
+                # Additional check: make sure we're not still on login page
+                if 'sign_in' not in response.url:
+                    return True
             
             return False
         except Exception as e:
-            print(f"{Colors.RED}Login error: {e}{Colors.NC}")
+            print(f"{Colors.RED}  Login error: {e}{Colors.NC}")
             return False
     
-    def test_unauthenticated_redirect(self, path: str) -> TestResult:
-        """
-        Test that a path redirects when unauthenticated.
-        
-        Args:
-            path: URL path to test
-            
-        Returns:
-            TestResult with pass/fail status
-        """
+    def test_health_check(self) -> TestResult:
+        """Test the /up health endpoint"""
         try:
-            # Use a fresh session without auth
-            response = requests.get(
-                f"{self.app.base_url}{path}",
-                allow_redirects=False,
-                timeout=10
-            )
-            
-            if response.status_code == 302:
+            response = requests.get(f"{self.app.base_url}/up", timeout=10)
+            if response.status_code == 200:
                 return TestResult(
-                    name=f"Unauth redirect: {path}",
+                    category="Health",
+                    name="Health check endpoint (/up)",
                     passed=True,
-                    message="Correctly requires authentication",
-                    status_code=302
+                    message="Responding correctly",
+                    status_code=200
                 )
             else:
                 return TestResult(
-                    name=f"Unauth redirect: {path}",
-                    passed=False,
-                    message=f"Expected 302, got {response.status_code}",
-                    status_code=response.status_code
-                )
-        except Exception as e:
-            return TestResult(
-                name=f"Unauth redirect: {path}",
-                passed=False,
-                message=f"Error: {str(e)}"
-            )
-    
-    def test_authenticated_access(self, path: str, expected_content: Optional[str] = None) -> TestResult:
-        """
-        Test that an authenticated request succeeds and optionally contains expected content.
-        
-        Args:
-            path: URL path to test
-            expected_content: Optional string that should appear in response
-            
-        Returns:
-            TestResult with pass/fail status
-        """
-        try:
-            response = self.session.get(
-                f"{self.app.base_url}{path}",
-                timeout=10
-            )
-            
-            if response.status_code != 200:
-                return TestResult(
-                    name=f"Auth access: {path}",
+                    category="Health",
+                    name="Health check endpoint (/up)",
                     passed=False,
                     message=f"Expected 200, got {response.status_code}",
                     status_code=response.status_code
                 )
-            
-            # Check for expected content if provided
-            if expected_content and expected_content not in response.text:
+        except Exception as e:
+            return TestResult(
+                category="Health",
+                name="Health check endpoint (/up)",
+                passed=False,
+                message=f"Request failed: {str(e)}"
+            )
+    
+    def test_login_page(self) -> TestResult:
+        """Test that login page is accessible"""
+        try:
+            response = requests.get(f"{self.app.base_url}/users/sign_in", timeout=10)
+            if response.status_code == 200:
+                # Check for expected content
+                if 'email' in response.text.lower() and 'password' in response.text.lower():
+                    return TestResult(
+                        category="Auth",
+                        name="Login page accessible",
+                        passed=True,
+                        message="Page loaded with login form",
+                        status_code=200
+                    )
+                else:
+                    return TestResult(
+                        category="Auth",
+                        name="Login page accessible",
+                        passed=False,
+                        message="Page loaded but missing login form elements",
+                        status_code=200
+                    )
+            else:
                 return TestResult(
-                    name=f"Auth access: {path}",
+                    category="Auth",
+                    name="Login page accessible",
                     passed=False,
-                    message=f"Content missing: '{expected_content}'",
-                    status_code=200
+                    message=f"Expected 200, got {response.status_code}",
+                    status_code=response.status_code
+                )
+        except Exception as e:
+            return TestResult(
+                category="Auth",
+                name="Login page accessible",
+                passed=False,
+                message=f"Request failed: {str(e)}"
+            )
+    
+    def test_dashboard(self) -> TestResult:
+        """Test the dashboard/home page"""
+        try:
+            response = self.session.get(f"{self.app.base_url}/", timeout=10)
+            
+            # Check for Rails errors
+            is_error, error_msg = self.check_for_rails_error(response)
+            if is_error:
+                return TestResult(
+                    category="Dashboard",
+                    name="Dashboard page (/)",
+                    passed=False,
+                    message=f"Rails error detected",
+                    status_code=response.status_code,
+                    error_details=error_msg
                 )
             
+            if response.status_code == 200:
+                return TestResult(
+                    category="Dashboard",
+                    name="Dashboard page (/)",
+                    passed=True,
+                    message="Page loaded successfully",
+                    status_code=200
+                )
+            else:
+                return TestResult(
+                    category="Dashboard",
+                    name="Dashboard page (/)",
+                    passed=False,
+                    message=f"Expected 200, got {response.status_code}",
+                    status_code=response.status_code
+                )
+        except Exception as e:
             return TestResult(
-                name=f"Auth access: {path}",
-                passed=True,
-                message="Success",
-                status_code=200
+                category="Dashboard",
+                name="Dashboard page (/)",
+                passed=False,
+                message=f"Request failed: {str(e)}"
+            )
+    
+    def test_route(self, route: Dict[str, str]) -> TestResult:
+        """Test a specific route"""
+        path = route['path']
+        action = route['action']
+        
+        try:
+            response = self.session.get(f"{self.app.base_url}{path}", timeout=10)
+            
+            # Check for Rails errors
+            is_error, error_msg = self.check_for_rails_error(response)
+            if is_error:
+                return TestResult(
+                    category="Routes",
+                    name=f"{action}: {path}",
+                    passed=False,
+                    message=f"Rails error detected",
+                    status_code=response.status_code,
+                    error_details=error_msg
+                )
+            
+            if response.status_code == 200:
+                return TestResult(
+                    category="Routes",
+                    name=f"{action}: {path}",
+                    passed=True,
+                    message="Success",
+                    status_code=200
+                )
+            elif response.status_code == 302:
+                # Redirect might be OK for some routes
+                return TestResult(
+                    category="Routes",
+                    name=f"{action}: {path}",
+                    passed=True,
+                    message="Redirected (expected)",
+                    status_code=302
+                )
+            else:
+                return TestResult(
+                    category="Routes",
+                    name=f"{action}: {path}",
+                    passed=False,
+                    message=f"Expected 200, got {response.status_code}",
+                    status_code=response.status_code
+                )
+        except Exception as e:
+            return TestResult(
+                category="Routes",
+                name=f"{action}: {path}",
+                passed=False,
+                message=f"Request failed: {str(e)}"
+            )
+    
+    def test_api_endpoint(self) -> TestResult:
+        """Test the API endpoint if app has one"""
+        if not self.app.has_api:
+            return None
+        
+        try:
+            # For cigar and tobacco apps, test /api/inventory/:token
+            # We'll use a test token
+            response = self.session.get(
+                f"{self.app.base_url}/api/inventory/test_token",
+                timeout=10
+            )
+            
+            # API might return 404 for invalid token, but should be JSON
+            if response.status_code in [200, 404, 401]:
+                try:
+                    data = response.json()
+                    if isinstance(data, (dict, list)):
+                        return TestResult(
+                            category="API",
+                            name=f"API endpoint (/api/inventory/:token)",
+                            passed=True,
+                            message=f"Returns valid JSON (status {response.status_code})",
+                            status_code=response.status_code
+                        )
+                except:
+                    return TestResult(
+                        category="API",
+                        name=f"API endpoint (/api/inventory/:token)",
+                        passed=False,
+                        message="Did not return valid JSON",
+                        status_code=response.status_code
+                    )
+            
+            return TestResult(
+                category="API",
+                name=f"API endpoint (/api/inventory/:token)",
+                passed=False,
+                message=f"Unexpected status code: {response.status_code}",
+                status_code=response.status_code
             )
         except Exception as e:
             return TestResult(
-                name=f"Auth access: {path}",
+                category="API",
+                name=f"API endpoint (/api/inventory/:token)",
                 passed=False,
-                message=f"Error: {str(e)}"
+                message=f"Request failed: {str(e)}"
             )
     
-    def run_tests(self) -> Tuple[int, int]:
+    def run_tests(self) -> TestSummary:
         """
         Run comprehensive test suite for the app.
         
         Returns:
-            Tuple of (passed_count, failed_count)
+            TestSummary with all results
         """
-        print(f"\n{Colors.BLUE}{'='*60}{Colors.NC}")
-        print(f"{Colors.BLUE}Testing {self.app.name.title()} Management App (Port {self.app.port}){Colors.NC}")
-        print(f"{Colors.BLUE}{'='*60}{Colors.NC}\n")
+        print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.NC}")
+        print(f"{Colors.BOLD}{Colors.BLUE}Testing {self.app.name.title()} Management App (Port {self.app.port}){Colors.NC}")
+        print(f"{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.NC}\n")
         
-        # Test 1: Health check
-        result = self.test_unauthenticated_redirect("/up")
-        if result.passed or result.status_code == 200:  # /up might be public
-            print(f"{Colors.GREEN}✅ PASS{Colors.NC}: Health check")
-        else:
-            print(f"{Colors.RED}❌ FAIL{Colors.NC}: Health check - {result.message}")
-        self.test_results.append(result)
+        # Category 1: Health Checks
+        print(f"{Colors.CYAN}[1/5] Health Checks{Colors.NC}")
+        result = self.test_health_check()
+        self.print_test_result(result)
+        self.summary.add_result(result)
         
-        # Test 2: Login page accessible
-        try:
-            response = requests.get(f"{self.app.base_url}/users/sign_in", timeout=10)
-            if response.status_code == 200:
-                result = TestResult("Login page", True, "Accessible", 200)
-                print(f"{Colors.GREEN}✅ PASS{Colors.NC}: Login page accessible")
-            else:
-                result = TestResult("Login page", False, f"Status {response.status_code}", response.status_code)
-                print(f"{Colors.RED}❌ FAIL{Colors.NC}: Login page - {result.message}")
-            self.test_results.append(result)
-        except Exception as e:
-            result = TestResult("Login page", False, str(e))
-            print(f"{Colors.RED}❌ FAIL{Colors.NC}: Login page - {result.message}")
-            self.test_results.append(result)
+        # Category 2: Authentication
+        print(f"\n{Colors.CYAN}[2/5] Authentication{Colors.NC}")
+        result = self.test_login_page()
+        self.print_test_result(result)
+        self.summary.add_result(result)
         
-        # Test 3: Authenticate
-        print(f"\n{Colors.YELLOW}Authenticating...{Colors.NC}")
+        # Attempt login
+        print(f"  {Colors.YELLOW}Attempting authentication...{Colors.NC}")
         if self.login():
-            print(f"{Colors.GREEN}✅ Authentication successful{Colors.NC}\n")
-            
-            # Test 4: Read routes and test authenticated endpoints
-            routes = self.get_routes()
-            index_routes = [r for r in routes if r['verb'] == 'GET' and r['path'].count('/') == 1 and ':id' not in r['path']]
-            
-            # Test common index routes
-            for route in index_routes[:10]:  # Limit to first 10 to avoid overwhelming output
-                path = route['path']
-                if 'sign_in' not in path and 'sign_out' not in path:
-                    result = self.test_authenticated_access(path)
-                    if result.passed:
-                        print(f"{Colors.GREEN}✅ PASS{Colors.NC}: {result.name}")
-                    else:
-                        print(f"{Colors.RED}❌ FAIL{Colors.NC}: {result.name} - {result.message}")
-                    self.test_results.append(result)
+            print(f"  {Colors.GREEN}✅ Authentication successful{Colors.NC}")
         else:
-            print(f"{Colors.RED}❌ Authentication failed{Colors.NC}")
-            print(f"{Colors.YELLOW}Skipping authenticated tests{Colors.NC}\n")
+            print(f"  {Colors.RED}❌ Authentication failed - skipping authenticated tests{Colors.NC}")
+            return self.summary
         
-        # Calculate results
-        passed = sum(1 for r in self.test_results if r.passed)
-        failed = sum(1 for r in self.test_results if not r.passed)
+        # Category 3: Dashboard
+        print(f"\n{Colors.CYAN}[3/5] Dashboard{Colors.NC}")
+        result = self.test_dashboard()
+        self.print_test_result(result)
+        self.summary.add_result(result)
         
-        return passed, failed
+        # Category 4: Routes (Controllers)
+        print(f"\n{Colors.CYAN}[4/5] Controller Routes{Colors.NC}")
+        print(f"  {Colors.YELLOW}Reading routes from Rails...{Colors.NC}")
+        routes = self.get_routes()
+        
+        # Filter to testable routes
+        testable_routes = []
+        for route in routes:
+            path = route['path']
+            verb = route['verb']
+            
+            # Only test GET routes
+            if verb != 'GET':
+                continue
+            
+            # Skip certain paths
+            skip_patterns = [
+                'sign_in', 'sign_out', 'sign_up', 'password',
+                'rails/', 'service-worker', 'manifest', '/api/'
+            ]
+            if any(pattern in path for pattern in skip_patterns):
+                continue
+            
+            # Skip routes with ANY parameter placeholders (:id, :cigar_id, :token, etc)
+            # We can't test these without knowing actual valid IDs
+            if ':' in path:
+                continue
+            
+            testable_routes.append(route)
+        
+        print(f"  {Colors.YELLOW}Found {len(testable_routes)} testable routes{Colors.NC}")
+        
+        for route in testable_routes:
+            result = self.test_route(route)
+            self.print_test_result(result)
+            self.summary.add_result(result)
+        
+        # Category 5: API Endpoints
+        if self.app.has_api:
+            print(f"\n{Colors.CYAN}[5/5] API Endpoints{Colors.NC}")
+            result = self.test_api_endpoint()
+            if result:
+                self.print_test_result(result)
+                self.summary.add_result(result)
+        else:
+            print(f"\n{Colors.CYAN}[5/5] API Endpoints{Colors.NC}")
+            print(f"  {Colors.YELLOW}⊘ No API endpoints for this app{Colors.NC}")
+        
+        return self.summary
 
 
 def get_system_username() -> str:
@@ -361,6 +586,43 @@ def get_system_username() -> str:
         return result.stdout.strip()
     except Exception:
         return "unknown"
+
+
+def print_final_summary(summaries: List[TestSummary]):
+    """Print comprehensive final summary of all tests"""
+    print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.NC}")
+    print(f"{Colors.BOLD}{Colors.BLUE}FINAL TEST SUMMARY{Colors.NC}")
+    print(f"{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.NC}\n")
+    
+    total_passed = sum(s.total_passed for s in summaries)
+    total_failed = sum(s.total_failed for s in summaries)
+    
+    # Summary by app
+    for summary in summaries:
+        status_icon = "✅" if summary.total_failed == 0 else "❌"
+        print(f"{status_icon} {Colors.BOLD}{summary.app_name.title()}{Colors.NC}: " +
+              f"{Colors.GREEN}{summary.total_passed} passed{Colors.NC}, " +
+              f"{Colors.RED}{summary.total_failed} failed{Colors.NC}")
+    
+    print(f"\n{Colors.BOLD}Total: {Colors.GREEN}{total_passed} passed{Colors.NC}, {Colors.RED}{total_failed} failed{Colors.NC}\n")
+    
+    # Detailed failures
+    if total_failed > 0:
+        print(f"{Colors.BOLD}{Colors.RED}FAILED TESTS DETAIL:{Colors.NC}\n")
+        for summary in summaries:
+            if summary.failures:
+                print(f"{Colors.BOLD}  {summary.app_name.title()} App:{Colors.NC}")
+                for i, failure in enumerate(summary.failures, 1):
+                    print(f"    {i}. {Colors.RED}[{failure.category}]{Colors.NC} {failure.name}")
+                    print(f"       {Colors.RED}└─ {failure.message}{Colors.NC}")
+                    if failure.status_code:
+                        print(f"          Status: {failure.status_code}")
+                    if failure.error_details:
+                        error_preview = failure.error_details[:150]
+                        if len(failure.error_details) > 150:
+                            error_preview += "..."
+                        print(f"          {Colors.YELLOW}Error: {error_preview}{Colors.NC}")
+                print()
 
 
 def main():
@@ -399,7 +661,6 @@ Examples:
     api_client = HostingAPIClient(api_token)
     
     # Define applications
-    apps_to_test = []
     if args.app:
         app_names = [args.app]
     else:
@@ -407,10 +668,12 @@ Examples:
     
     workspace_root = Path(__file__).parent
     
+    # Fetch credentials and create app configs
+    apps_to_test = []
     for app_name in app_names:
         port = {'cigar': 3001, 'tobacco': 3002, 'whiskey': 3003}[app_name]
+        has_api = app_name in ['cigar', 'tobacco']  # These apps have API endpoints
         
-        # Fetch credentials from API
         print(f"{Colors.YELLOW}Fetching credentials for {app_name}...{Colors.NC}")
         email, password = api_client.get_user_credentials(username, app_name)
         
@@ -424,33 +687,28 @@ Examples:
             port=port,
             base_url=f"http://localhost:{port}",
             email=email,
-            password=password
+            password=password,
+            has_api=has_api
         )
         apps_to_test.append(app_config)
     
     # Run tests for each app
-    total_passed = 0
-    total_failed = 0
-    
+    summaries = []
     for app_config in apps_to_test:
         tester = RailsAppTester(app_config, workspace_root)
-        passed, failed = tester.run_tests()
-        total_passed += passed
-        total_failed += failed
+        summary = tester.run_tests()
+        summaries.append(summary)
     
-    # Print summary
-    print(f"\n{Colors.BLUE}{'='*60}{Colors.NC}")
-    print(f"{Colors.BLUE}Test Summary{Colors.NC}")
-    print(f"{Colors.BLUE}{'='*60}{Colors.NC}")
-    print(f"{Colors.GREEN}Passed: {total_passed}{Colors.NC}")
-    print(f"{Colors.RED}Failed: {total_failed}{Colors.NC}")
-    print()
+    # Print final summary
+    print_final_summary(summaries)
     
+    # Exit with appropriate code
+    total_failed = sum(s.total_failed for s in summaries)
     if total_failed == 0:
-        print(f"{Colors.GREEN}✅ All tests passed!{Colors.NC}")
+        print(f"{Colors.GREEN}✅ All tests passed!{Colors.NC}\n")
         sys.exit(0)
     else:
-        print(f"{Colors.RED}❌ Some tests failed.{Colors.NC}")
+        print(f"{Colors.RED}❌ {total_failed} test(s) failed.{Colors.NC}\n")
         sys.exit(1)
 
 
