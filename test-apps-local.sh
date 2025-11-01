@@ -18,10 +18,10 @@ PASSED_TESTS=0
 test_result() {
     if [ $1 -eq 0 ]; then
         echo -e "${GREEN}✅ PASS${NC}: $2"
-        ((PASSED_TESTS++))
+        PASSED_TESTS=$((PASSED_TESTS + 1))
     else
         echo -e "${RED}❌ FAIL${NC}: $2"
-        ((FAILED_TESTS++))
+        FAILED_TESTS=$((FAILED_TESTS + 1))
     fi
 }
 
