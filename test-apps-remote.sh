@@ -33,9 +33,9 @@ test_url() {
     local follow_redirects=${4:-false}
     
     if [ "$follow_redirects" = "true" ]; then
-        response=$(curl -sL -w "%{http_code}" -o /dev/null "$url" 2>/dev/null || echo "000")
+        response=$(curl -skL -w "%{http_code}" -o /dev/null "$url" 2>/dev/null || echo "000")
     else
-        response=$(curl -s -w "%{http_code}" -o /dev/null "$url" 2>/dev/null || echo "000")
+        response=$(curl -sk -w "%{http_code}" -o /dev/null "$url" 2>/dev/null || echo "000")
     fi
     
     if [ "$response" = "$expected_status" ]; then
